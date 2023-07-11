@@ -1,0 +1,5 @@
+/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles/rebuild_cache.dir
+/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles/edit_cache.dir
+/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles/test_fk.dir
+/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles/kinematics_example.dir
+/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles/adam_kinematics.dir
