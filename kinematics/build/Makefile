@@ -176,33 +176,6 @@ src/adam_kinematics.cpp.s:
 	$(MAKE) -f CMakeFiles/adam_kinematics.dir/build.make CMakeFiles/adam_kinematics.dir/src/adam_kinematics.cpp.s
 .PHONY : src/adam_kinematics.cpp.s
 
-test/main.o: test/main.cpp.o
-
-.PHONY : test/main.o
-
-# target to build an object file
-test/main.cpp.o:
-	$(MAKE) -f CMakeFiles/kinematics_example.dir/build.make CMakeFiles/kinematics_example.dir/test/main.cpp.o
-.PHONY : test/main.cpp.o
-
-test/main.i: test/main.cpp.i
-
-.PHONY : test/main.i
-
-# target to preprocess a source file
-test/main.cpp.i:
-	$(MAKE) -f CMakeFiles/kinematics_example.dir/build.make CMakeFiles/kinematics_example.dir/test/main.cpp.i
-.PHONY : test/main.cpp.i
-
-test/main.s: test/main.cpp.s
-
-.PHONY : test/main.s
-
-# target to generate assembly for a file
-test/main.cpp.s:
-	$(MAKE) -f CMakeFiles/kinematics_example.dir/build.make CMakeFiles/kinematics_example.dir/test/main.cpp.s
-.PHONY : test/main.cpp.s
-
 test/test_fk.o: test/test_fk.cpp.o
 
 .PHONY : test/test_fk.o
@@ -230,6 +203,33 @@ test/test_fk.cpp.s:
 	$(MAKE) -f CMakeFiles/test_fk.dir/build.make CMakeFiles/test_fk.dir/test/test_fk.cpp.s
 .PHONY : test/test_fk.cpp.s
 
+test/test_ik.o: test/test_ik.cpp.o
+
+.PHONY : test/test_ik.o
+
+# target to build an object file
+test/test_ik.cpp.o:
+	$(MAKE) -f CMakeFiles/kinematics_example.dir/build.make CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o
+.PHONY : test/test_ik.cpp.o
+
+test/test_ik.i: test/test_ik.cpp.i
+
+.PHONY : test/test_ik.i
+
+# target to preprocess a source file
+test/test_ik.cpp.i:
+	$(MAKE) -f CMakeFiles/kinematics_example.dir/build.make CMakeFiles/kinematics_example.dir/test/test_ik.cpp.i
+.PHONY : test/test_ik.cpp.i
+
+test/test_ik.s: test/test_ik.cpp.s
+
+.PHONY : test/test_ik.s
+
+# target to generate assembly for a file
+test/test_ik.cpp.s:
+	$(MAKE) -f CMakeFiles/kinematics_example.dir/build.make CMakeFiles/kinematics_example.dir/test/test_ik.cpp.s
+.PHONY : test/test_ik.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -244,12 +244,12 @@ help:
 	@echo "... src/adam_kinematics.o"
 	@echo "... src/adam_kinematics.i"
 	@echo "... src/adam_kinematics.s"
-	@echo "... test/main.o"
-	@echo "... test/main.i"
-	@echo "... test/main.s"
 	@echo "... test/test_fk.o"
 	@echo "... test/test_fk.i"
 	@echo "... test/test_fk.s"
+	@echo "... test/test_ik.o"
+	@echo "... test/test_ik.i"
+	@echo "... test/test_ik.s"
 .PHONY : help
 
 

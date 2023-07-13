@@ -19,6 +19,7 @@ typedef Eigen::Matrix<double, 7, 1> Vector7d;
 
 typedef Eigen::Vector<double, N_JOINTS> JointVec;
 typedef Eigen::Vector<double, N_POS_STATES> GenPosVec;
+typedef Eigen::Vector<double, N_POS_STATES_MJC> GenPosVecMJC;
 typedef Eigen::Vector<double, N_VEL_STATES> GenVelVec;
 typedef Eigen::Vector<double, N_OUTPUTS> OutputVec;
 

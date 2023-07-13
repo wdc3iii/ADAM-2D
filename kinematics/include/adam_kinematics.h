@@ -116,7 +116,7 @@ class Kinematics {
 
 GenPosVec ConvertGenPosFromMujocoToPinocchio(GenPosVec q_mj);
 
-GenPosVec ConvertGenPosFromPinocchioToMujoco(GenPosVec q_pin);
+GenPosVecMJC ConvertGenPosFromPinocchioToMujoco(GenPosVec q_pin);
 
 GenVelVec ConvertGenVelFromMujocoToPinocchio(GenVelVec q_vel_mj);
 

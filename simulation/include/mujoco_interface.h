@@ -163,6 +163,9 @@ class MujocoInterface {
     /// and calculates the forces and torques between the geoms
     /// \return A map containing the contact data for all the contact pairs
     public: std::map<std::string, ContactData> GetContactData();
+
+    public: Eigen::Vector<double, 2> GetComPos();
+    public: Eigen::Vector<double, 2> GetSWFootPos();
 };
 
 // Simulation interaction callback functions (DO NOT CHANGE)

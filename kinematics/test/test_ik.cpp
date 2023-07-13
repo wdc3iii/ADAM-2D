@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include<cstdlib>
+#include <cstdlib>
 
 #include "utility_math.h"
 #include "utility_kinematics.h"
@@ -15,6 +15,8 @@
 
 #include "../include/kinematics_definitions.h"
 #include "adam_kinematics.h"
+
+// #include "mujoco_interface.h"
 
 // Load pinocchio stuff
 #include "pinocchio/parsers/urdf.hpp"
@@ -36,6 +38,7 @@
 int main() {
     // Specify the URDF path 
     std::string urdf_file_location = "../../rsc/models/adam.urdf";
+    const char model_file_location[] = "../../rsc/models/adam.xml";
 
     // The number of configuration tests to perform
     const int number_of_tests = 10000;
@@ -48,9 +51,11 @@ int main() {
 
     // Create an instance of the kinematics class
     Kinematics kinematics;
-
-    // Initialize the kinemtics class
     kinematics.Initialize(urdf_file_location, true);
+
+    // Create an instance of the class used to run the mujoco simulation
+    // MujocoInterface mujoco_interface;
+    // mujoco_interface.MujocoSetup(model_file_location);
     
     // Create the vector to use for the initial guess in the IK solver
     GenPosVec q_init = GenPosVec::Zero();
@@ -58,29 +63,15 @@ int main() {
 
     // The vector to store the state solution
     GenPosVec q_sol = GenPosVec::Zero();
-
-    // The vector to store the IK solution
     GenPosVec q_ik = GenPosVec::Zero();
-    
-    // The correct outputs 
     OutputVec y_sol = OutputVec::Zero();
-
-    // The outputs given by the IK solver
     OutputVec y_ik = OutputVec::Zero();
-
-    // Define a vector to initialize the torso euler angle orientation
     Vector3d euler_zyx = Vector3d::Zero();
-
-    // Define a vector to initialize the torso orientation
     Vector4d quat_xyzw = Vector4d::Zero();
-
-    // Define an error vector
     GenPosVec q_error = GenPosVec::Zero(); 
 
     bool solution_found = true;
-
     OutputVec y_error = OutputVec::Zero();
-
     Foot stance_foot = Foot::LEFT;
     
     for (int i = 0; i < number_of_tests; i++) {
@@ -133,7 +124,7 @@ int main() {
         }
 
         // Try to solve the IK using the initial guess
-        //q_ik = q_sol;
+        // q_ik = q_sol;
         solution_found = kinematics.SolveIK(q_ik, y_sol, stance_foot);
         
         // Calculate the outputs based on the IK solution
@@ -154,11 +145,14 @@ int main() {
         q_error.block<5, 1>(GenPosID::Q_X, 0) = q_sol.block<5, 1>(GenPosID::Q_X, 0) - q_ik.block<5, 1>(GenPosID::Q_X, 0);
 
         // Check if the solution is correct
-        if ((solution_found == false) || ((y_sol - y_ik).norm() > 0.001)) {
+        if ((!solution_found) || ((y_sol - y_ik).norm() > 0.001)) {
             std::cout << "Error in solution" << std::endl;
             while (true);
         }
-    }
 
+
+
+
+    }
     return 0;
 }

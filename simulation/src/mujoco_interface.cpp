@@ -371,3 +371,13 @@ std::map<std::string, ContactData> MujocoInterface::GetContactData() {
 
     return contact_pair_map;
 }
+
+Eigen::Vector<double, 2> MujocoInterface::GetComPos() {
+    mj_forward(MJ_MODEL_PTR, MJ_DATA_PTR);
+    std::cout << MJ_DATA_PTR->xipos << std::endl;
+}
+
+Eigen::Vector<double, 2> MuJoCoInterface::GetSWFootPos() {
+    mj_forward(MJ_MODEL_PTR, MJ_DATA_PTR);
+    std::cout << MJ_DATA_PTR->xpos << std::endl;
+}

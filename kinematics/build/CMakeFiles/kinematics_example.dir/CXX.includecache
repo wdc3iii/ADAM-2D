@@ -66,7 +66,7 @@ Eigen/Dense
 Eigen/Dense
 -
 
-/home/wcompton/Repos/ADAM-2D/kinematics/test/main.cpp
+/home/wcompton/Repos/ADAM-2D/kinematics/test/test_ik.cpp
 stdio.h
 /home/wcompton/Repos/ADAM-2D/kinematics/test/stdio.h
 iostream

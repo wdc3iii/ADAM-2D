@@ -57,27 +57,27 @@ include CMakeFiles/kinematics_example.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/kinematics_example.dir/flags.make
 
-CMakeFiles/kinematics_example.dir/test/main.cpp.o: CMakeFiles/kinematics_example.dir/flags.make
-CMakeFiles/kinematics_example.dir/test/main.cpp.o: ../test/main.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/kinematics_example.dir/test/main.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/kinematics_example.dir/test/main.cpp.o -c /home/wcompton/Repos/ADAM-2D/kinematics/test/main.cpp
+CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o: CMakeFiles/kinematics_example.dir/flags.make
+CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o: ../test/test_ik.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o -c /home/wcompton/Repos/ADAM-2D/kinematics/test/test_ik.cpp
 
-CMakeFiles/kinematics_example.dir/test/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/kinematics_example.dir/test/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/wcompton/Repos/ADAM-2D/kinematics/test/main.cpp > CMakeFiles/kinematics_example.dir/test/main.cpp.i
+CMakeFiles/kinematics_example.dir/test/test_ik.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/kinematics_example.dir/test/test_ik.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/wcompton/Repos/ADAM-2D/kinematics/test/test_ik.cpp > CMakeFiles/kinematics_example.dir/test/test_ik.cpp.i
 
-CMakeFiles/kinematics_example.dir/test/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/kinematics_example.dir/test/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/wcompton/Repos/ADAM-2D/kinematics/test/main.cpp -o CMakeFiles/kinematics_example.dir/test/main.cpp.s
+CMakeFiles/kinematics_example.dir/test/test_ik.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/kinematics_example.dir/test/test_ik.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/wcompton/Repos/ADAM-2D/kinematics/test/test_ik.cpp -o CMakeFiles/kinematics_example.dir/test/test_ik.cpp.s
 
 # Object files for target kinematics_example
 kinematics_example_OBJECTS = \
-"CMakeFiles/kinematics_example.dir/test/main.cpp.o"
+"CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o"
 
 # External object files for target kinematics_example
 kinematics_example_EXTERNAL_OBJECTS =
 
-kinematics_example: CMakeFiles/kinematics_example.dir/test/main.cpp.o
+kinematics_example: CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o
 kinematics_example: CMakeFiles/kinematics_example.dir/build.make
 kinematics_example: /opt/openrobots/lib/libpinocchio.so
 kinematics_example: /usr/lib/x86_64-linux-gnu/libboost_filesystem.so

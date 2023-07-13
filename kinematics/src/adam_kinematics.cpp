@@ -34,9 +34,6 @@ void Kinematics::Initialize(std::string urdf_file_location, bool useStaticCom) {
     // Calculate joint offsets
     GenPosVec q_nom = GenPosVec::Zero();
 
-    // Debugging
-    // std::cout << data.v << std::endl;
-
     pinocchio::forwardKinematics(this->model, this->data, q_nom);
 
     pinocchio::updateFramePlacements(this->model, this->data);
@@ -105,7 +102,7 @@ OutputVec Kinematics::CalculateOutputs(GenPosVec q, Foot stance_foot) {
     pinocchio::updateFramePlacements(this->model, this->data);
 
     // Calculate the CoM positions in the world frame
-    if (use_static_com) {
+    if (this->use_static_com) {
         // Use an approximated fixed CoM position
         com_pos_world = data.oMf[STATIC_COM_FRAME_ID].translation();
     } else {
@@ -245,6 +242,7 @@ bool Kinematics::SolveIK(GenPosVec &q, OutputVec y_out_ref, Foot stance_foot) {
     // Jacobains of the frames defined relative to the stance foot world aligned coordinate frame
     Eigen::Matrix<double, 6, N_VEL_STATES> J_swf_rel  = Eigen::Matrix<double, 6, N_VEL_STATES>::Zero(); 
     Eigen::Matrix<double, 6, N_VEL_STATES> J_com_rel = Eigen::Matrix<double, 6, N_VEL_STATES>::Zero();
+    Eigen::Matrix<double, 6, N_VEL_STATES> J_torso_rel = Eigen::Matrix<double, 6, N_VEL_STATES>::Zero();
 
     // A Jacobian for the outputs
     Eigen::Matrix<double, N_OUTPUTS, N_VEL_STATES> J  = Eigen::Matrix<double, N_OUTPUTS, N_VEL_STATES>::Zero(); 
@@ -272,13 +270,13 @@ bool Kinematics::SolveIK(GenPosVec &q, OutputVec y_out_ref, Foot stance_foot) {
         y_out_error = y_out_ref - y_out;
         
         // Check if the outputs have converged
-        if (y_out_error.norm() < eps) {
+        if (y_out_error.norm() < this->eps) {
             std::cout << "IK converged. Iteration: " << i << std::endl;
             break;
         }
 
         // Check if the maximum number of iterations have been reached
-        if (i >= max_number_of_iterations) {
+        if (i >= this->max_number_of_iterations) {
             //std::cout << "q_out: " << q.transpose() << std::endl;
             //std::cout << "y_out: " << y_out.transpose() << std::endl;
             std::cout << "Max number of iterations reached" << std::endl;
@@ -287,13 +285,13 @@ bool Kinematics::SolveIK(GenPosVec &q, OutputVec y_out_ref, Foot stance_foot) {
         }
 
         // Compute the Jacobians for the torso and feet in the world aligned local frames
-        pinocchio::computeJointJacobians(model, data, q);
-        pinocchio::getFrameJacobian(model, data, TORSO_FRAME_ID, pinocchio::LOCAL_WORLD_ALIGNED, J_torso_world);
-        pinocchio::getFrameJacobian(model, data, stf_frame_id, pinocchio::LOCAL_WORLD_ALIGNED, J_stf_world);
-        pinocchio::getFrameJacobian(model, data, swf_frame_id, pinocchio::LOCAL_WORLD_ALIGNED, J_swf_world);
+        pinocchio::computeJointJacobians(this->model, this->data, q);
+        pinocchio::getFrameJacobian(this->model, this->data, TORSO_FRAME_ID, pinocchio::LOCAL_WORLD_ALIGNED, J_torso_world);
+        pinocchio::getFrameJacobian(this->model, this->data, stf_frame_id, pinocchio::LOCAL_WORLD_ALIGNED, J_stf_world);
+        pinocchio::getFrameJacobian(this->model, this->data, swf_frame_id, pinocchio::LOCAL_WORLD_ALIGNED, J_swf_world);
         
         // Compute the Jacobian of the CoM in the world frame
-        if (use_static_com) {
+        if (this->use_static_com) {
             pinocchio::getFrameJacobian(model, data, STATIC_COM_FRAME_ID, pinocchio::LOCAL_WORLD_ALIGNED, J_com_world);
         } else {
             J_com_world.block<3, N_VEL_STATES>(0, 0) = pinocchio::jacobianCenterOfMass(this->model, this->data, q, false);
@@ -305,9 +303,12 @@ bool Kinematics::SolveIK(GenPosVec &q, OutputVec y_out_ref, Foot stance_foot) {
         J_swf_rel = J_swf_world - J_stf_world;
 
         J_com_rel = J_com_world - J_stf_world;
+
+        J_torso_rel = J_torso_world - J_stf_world;
             
         // Torso rotation
-        J(OutID::PITCH, 0) = J_torso_world(3, 0);
+        // J(OutID::PITCH, 0) = J_torso_world(3, 0);
+        J.block<1, N_VEL_STATES>(OutID::PITCH, 0) = J_torso_world.block<1, N_VEL_STATES>(3, 0);
             
         // Swing foot pos relative to stance foot position
         J.block<3, N_VEL_STATES>(OutID::SWF_POS_X, 0) = J_swf_rel.block<3, N_VEL_STATES>(0, 0);
@@ -320,7 +321,7 @@ bool Kinematics::SolveIK(GenPosVec &q, OutputVec y_out_ref, Foot stance_foot) {
         JJt.noalias() = J * J.transpose();
 
         // Add damping terms to the matrix so that it is always invertible
-        JJt.diagonal().array() += damping_factor;
+        JJt.diagonal().array() += this->damping_factor;
 
         // Compute the state update vector
         v.noalias() = J.transpose() * JJt.ldlt().solve(y_out_error);
@@ -345,9 +346,9 @@ bool Kinematics::SolveIK(GenPosVec &q, OutputVec y_out_ref, Foot stance_foot) {
     q_nom(GenPosID::P_RHP) = q(GenPosID::P_RHP);
     q_nom(GenPosID::P_RKP) = q(GenPosID::P_RKP);
 
-    pinocchio::forwardKinematics(model, data, q_nom);
+    pinocchio::forwardKinematics(this->model, this->data, q_nom);
 
-    updateFramePlacements(model, data);
+    updateFramePlacements(this->model, this->data);
 
     Vector3d left_foot_pos_rel = data.oMf[LEFT_FOOT_FRAME_ID].translation() - data.oMf[LEFT_HIP_ROLL_FRAME_ID].translation();
     Vector3d right_foot_pos_rel = data.oMf[RIGHT_FOOT_FRAME_ID].translation() - data.oMf[RIGHT_HIP_ROLL_FRAME_ID].translation();
@@ -361,7 +362,7 @@ bool Kinematics::SolveIK(GenPosVec &q, OutputVec y_out_ref, Foot stance_foot) {
     q(GenPosID::P_RHP) = right_leg_joints(1);
     q(GenPosID::P_RKP) = right_leg_joints(2);
 
-    return i < max_number_of_iterations;
+    return i < this->max_number_of_iterations;
 }
 
 void Kinematics::PrintOutputs(OutputVec q_out) {
@@ -376,7 +377,7 @@ void Kinematics::PrintOutputs(OutputVec q_out) {
     std::cout << "torso pos z: " << q_out(OutID::COM_POS_Z) << std::endl;
 }
 
-GenPosVec ConvertGenPosFromMujocoToPinocchio(GenPosVec q_pos_mj) {
+GenPosVec ConvertGenPosFromMujocoToPinocchio(GenPosVecMJC q_pos_mj) {
     GenPosVec q_pos_pin;
 
     q_pos_pin(GenPosID::P_X) = q_pos_mj(MujocoGenPosID::P_X);
@@ -399,8 +400,8 @@ GenPosVec ConvertGenPosFromMujocoToPinocchio(GenPosVec q_pos_mj) {
     return q_pos_pin;
 }
 
-GenPosVec ConvertGenPosFromPinocchioToMujoco(GenPosVec q_pos_pin) {
-    GenPosVec q_pos_mj = GenPosVec::Zero();
+GenPosVecMJC ConvertGenPosFromPinocchioToMujoco(GenPosVec q_pos_pin) {
+    GenPosVecMJC q_pos_mj = GenPosVecMJC::Zero();
     
     q_pos_mj(MujocoGenPosID::P_X) = q_pos_pin(GenPosID::P_X);
     q_pos_mj(MujocoGenPosID::P_Z) = q_pos_pin(GenPosID::P_Z);
@@ -544,7 +545,7 @@ Vector3d Kinematics::GetFramePos(std::string frame_name) {
 
 void Kinematics::UpdateFramePlacements(GenPosVec q) {
     // Calculate the forward kinematics for the model
-    pinocchio::forwardKinematics(model, data, q);
+    pinocchio::forwardKinematics(this->model, this->data, q);
 
-    pinocchio::updateFramePlacements(model, data);
+    pinocchio::updateFramePlacements(this->model, this->data);
 }

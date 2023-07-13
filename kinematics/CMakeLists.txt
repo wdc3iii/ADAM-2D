@@ -14,7 +14,7 @@ find_package(Eigen3 REQUIRED)
 # Find the pinocchio package
 find_package(pinocchio REQUIRED HINTS $ENV{PINOCCHIO_DIR}/lib)
 
-# Add the robot utilitity library
+# Add the robot utility library
 add_library(robot_utils SHARED IMPORTED GLOBAL)
 set_property(TARGET robot_utils PROPERTY IMPORTED_LOCATION /home/wcompton/Repos/ADAM-2D/utils/build/librobot_utils.so)
 target_include_directories(robot_utils INTERFACE /home/wcompton/Repos/ADAM-2D/utils/include)
@@ -30,9 +30,14 @@ add_library(adam_kinematics SHARED
     src/adam_kinematics.cpp
 )
 
+# # Create the mujoco interface library
+# add_library(mujoco_interface SHARED
+#     src/mujoco_interface.cpp
+# )
+
 # Create a kinematics example executable
 add_executable(kinematics_example
-    test/main.cpp
+    test/test_ik.cpp
 )
 
 add_executable(test_fk

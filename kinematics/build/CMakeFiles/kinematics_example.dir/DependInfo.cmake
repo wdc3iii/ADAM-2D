@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/wcompton/Repos/ADAM-2D/kinematics/test/main.cpp" "/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles/kinematics_example.dir/test/main.cpp.o"
+  "/home/wcompton/Repos/ADAM-2D/kinematics/test/test_ik.cpp" "/home/wcompton/Repos/ADAM-2D/kinematics/build/CMakeFiles/kinematics_example.dir/test/test_ik.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
