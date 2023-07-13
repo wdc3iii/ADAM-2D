@@ -29,7 +29,8 @@ class MujocoInterface:
                 self.torque = np.zeros((3,))
     
 
-    def __init__(self, xml_path: str, vis_rate: int=60):
+    def __init__(self, xml_path: str, vis_rate: int=60, vis_enabled:bool=True):
+        self.vis_enabled = vis_enabled
         self.setup(xml_path, vis_rate)
 
     def setup(self, xml_path: str, vis_rate: int=60) -> None:
@@ -37,12 +38,13 @@ class MujocoInterface:
         # Create model and data objects
         self.mj_model = mj.MjModel.from_xml_path(xml_path)
         self.mj_data = mj.MjData(self.mj_model)
+        mj.mj_forward(self.mj_model, self.mj_data)
 
         # Create and initialize viewer object
-        self.mj_viewer = mujoco.viewer.launch_passive(self.mj_model, self.mj_data)
-        mj.mj_forward(self.mj_model, self.mj_data)
-        self.mj_viewer.sync()
-        self.prevVisSync = time.time()
+        if self.vis_enabled:
+            self.mj_viewer = mujoco.viewer.launch_passive(self.mj_model, self.mj_data)
+            self.mj_viewer.sync()
+            self.prevVisSync = time.time()
 
         # Populate the geom map
         self.geom_map = [self.mj_model.names + self.mj_model.name_geomadr[ii] for ii in range(self.mj_model.ngeom)]
@@ -60,7 +62,7 @@ class MujocoInterface:
             self.contact_map[contact_pair_name] = self.ContactData(name_parent, name_child, id_parent, id_child)
 
     def updateScene(self) -> None:
-        if self.mj_viewer.is_running():
+        if self.vis_enabled and self.mj_viewer.is_running():
             self.mj_viewer.sync()
         else:
             raise RuntimeError("Viewer has been closed!")
@@ -89,8 +91,14 @@ class MujocoInterface:
         self.mj_data.qpos = qpos
         self.mj_data.qvel = qvel
 
-    def setState(self, pos_base: np.ndarray, pos_joints: np.ndarray, vel_base: np.ndarray, vel_joints: np.ndarray) -> None:
-        self.setState(np.hstack(pos_base, pos_joints), np.hstack(vel_base, vel_joints))
+    def getGenPosition(self) -> np.ndarray:
+        return self.mj_data.qpos
+    
+    def getGenVelocity(self) -> np.ndarray:
+        return self.mj_data.qvel
+
+    # def setState(self, pos_base: np.ndarray, pos_joints: np.ndarray, vel_base: np.ndarray, vel_joints: np.ndarray) -> None:
+    #     self.setState(np.hstack(pos_base, pos_joints), np.hstack(vel_base, vel_joints))
 
     def jointPosCmd(self, joint_pos_ref: np.ndarray) -> None:
         self.mj_data.ctrl[:4] = joint_pos_ref
@@ -102,13 +110,16 @@ class MujocoInterface:
         self.mj_data.ctrl[8:12] = tau_ref
 
     def getFootPos(self):
-        return (self.mj_data.geom_xpos[12, :], self.mj_data.geom_xpos[7, :])
+        return (self.mj_data.geom_xpos[12, ::2], self.mj_data.geom_xpos[7, ::2])
 
     def getContactForces(self):
         pass
 
     def step(self) -> None:
         mj.mj_step(self.mj_model, self.mj_data)
+
+    def forward(self) -> None:
+        mj.mj_forward(self.mj_model, self.mj_data)
     
     def resetContact(self) -> None:
         for (contact_pair_name, contact_data) in self.contact_map.items():

@@ -1,0 +1,7 @@
+# IDE things
+.idea
+.vscode
+__pycache__
+
+# Data Logs
+*.csv
