@@ -124,6 +124,9 @@ class MujocoInterface:
     def resetContact(self) -> None:
         for (contact_pair_name, contact_data) in self.contact_map.items():
             contact_data.setActive(False)
+    
+    def time(self) -> float:
+        return self.mj_data.time
 
     def getContact(self) -> None:
         self.resetContact()
@@ -153,7 +156,7 @@ class MujocoInterface:
 
 if __name__ == "__main__":
     import time
-    mjInt = MujocoInterface("/home/wcompton/Repos/ADAM-2D/rsc/models/adam.xml")
+    mjInt = MujocoInterface("rsc/models/adam.xml")
 
     t0 = time.time()
     while True:
@@ -163,8 +166,3 @@ if __name__ == "__main__":
         if time.time() - t0 >= 1 / 60:
             mjInt.updateScene()
             t0 = time.time()
-
-        print(mjInt.getFootPos())
-
-        # time.sleep(0.1)
-

@@ -104,6 +104,17 @@ class Kinematics:
     def fk_StaticCom(self, q: np.ndarray):
         self.pin_data.oMf[self.STATIC_COM_FID].translation
 
+    def v_CoM(self, q:np.ndarray, qd:np.ndarray) -> np.ndarray:
+        pass
+
+    def v_StaticCom(self, q:np.ndarray, qd:np.array) -> np.ndarray:
+        pass 
+
+    def getVCom(self, q:np.ndarray, qd:np.ndarray) -> np.ndarray:
+        if self.use_static_com:
+            return self.v_StaticCom(q, qd)
+        return self.v_CoM(q, qd)
+
     def solveIK(self, q: np.ndarray, y_des: np.ndarray, stanceFoot: bool) -> tuple:
         if stanceFoot:
             stf_fid = self.LEFT_FOOT_FID
@@ -117,7 +128,6 @@ class Kinematics:
             y_out = self.calcOutputs(q, stanceFoot)
             y_err = y_des - y_out
 
-            # print("\t", np.linalg.norm(y_err))
             if np.linalg.norm(y_err) < self.eps:
                 break
 
@@ -251,8 +261,8 @@ class Kinematics:
 if __name__ == "__main__":
     from simulation_py.mujoco_interface import MujocoInterface
 
-    adamKin = Kinematics("/home/wcompton/Repos/ADAM-2D/rsc/models/adam.urdf", "/home/wcompton/Repos/ADAM-2D/rsc/models/")
-    mjInt = MujocoInterface("/home/wcompton/Repos/ADAM-2D/rsc/models/adam.xml", vis_enabled=False)
+    adamKin = Kinematics("rsc/models/adam.urdf", "rsc/models/")
+    mjInt = MujocoInterface("rsc/models/adam.xml", vis_enabled=False)
 
     # First, check the Forward kinematics in the zero (base) position
     q_zero = adamKin.getZeroPos()
