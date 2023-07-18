@@ -6,7 +6,12 @@ from plot.logger import Logger
 
 class HLIPController:
 
-    def __init__(self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, v_ref:float=0, pitch_ref:float=0.025, use_static_com:bool=False, T_DSP:float=0, log_path:str="plot/log_ctrl.csv"):
+    def __init__(
+            self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, v_ref:float=0, pitch_ref:float=0.025,
+            v_max_change:float=0.1, z_max_change:float=0.02, x_bez:np.ndarray=np.array([0,0,1,1,1]),
+            vswf_tof:float=0.05, vswf_imp:float=-0.05, zswf_max:float=0.1, pswf_max:float=0.7,
+            use_static_com:bool=False, T_DSP:float=0, log_path:str="plot/log_ctrl.csv"
+        ):
         self.T_SSP = T_SSP
         self.T_DSP = T_DSP
         self.T_SSP_goal = T_SSP
@@ -30,17 +35,17 @@ class HLIPController:
         self.v_ref_goal = v_ref
 
         self.pos_swf_imp = 0
-        self.v_swf_tof = 0.05
-        self.v_swf_imp = -0.05
-        self.z_swf_max = 0.1
-        self.t_swf_max_height = 0.7
+        self.v_swf_tof = vswf_tof
+        self.v_swf_imp = vswf_imp
+        self.z_swf_max = zswf_max
+        self.t_swf_max_height = pswf_max
 
         self.adamKin = Kinematics(urdf_path, mesh_path, use_static_com)
 
-        self.vel_max_change = 0.1
-        self.pos_z_max_change = 0.02
+        self.vel_max_change = v_max_change
+        self.pos_z_max_change = z_max_change
 
-        self.swf_x_bez = Bezier(np.array([0, 0, 1, 1, 1]))
+        self.swf_x_bez = Bezier(x_bez)
 
         x_swf_pos_z = np.array([0, self.T_SSP, self.t_swf_max_height * self.T_SSP, 0, self.T_SSP])
         y_swf_pos_z = np.array([0, self.pos_swf_imp, self.z_swf_max, self.v_swf_tof, self.v_swf_imp])
@@ -107,6 +112,9 @@ class HLIPController:
 
             self.cur_stf = not self.cur_stf
             self.cur_swf = not self.cur_swf
+
+            # Recompute outputs with relabeled stance/swing feet
+            y_out = self.adamKin.calcOutputs(q_pos_ctrl, self.cur_stf)
 
             delta_v_ref = self.v_ref_goal - self.v_ref
             if abs(delta_v_ref) > self.vel_max_change:

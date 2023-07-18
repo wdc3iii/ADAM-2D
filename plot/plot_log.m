@@ -81,3 +81,18 @@ hold off
 legend('x swf ref', 'z swf ref')
 sgtitle('Step Reference')
 
+fh5 = figure();
+subplot(2, 1, 1)
+hold on
+plot(t, x_curr)
+plot(t, x_impact)
+plot(t, x_impact_ref)
+hold off;
+legend('x com', 'predicted x com impact', 'x com impact ref')
+subplot(2, 1, 2)
+hold on
+plot(t, v_curr)
+plot(t, v_impact)
+plot(t, v_impact_ref)
+hold off
+legend('v com', 'predicted v com impact', 'v com impact ref')
