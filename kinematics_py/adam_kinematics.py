@@ -137,7 +137,7 @@ class Kinematics:
             J_swf_world = pin.getFrameJacobian(self.pin_model, self.pin_data, swf_fid, pin.LOCAL_WORLD_ALIGNED)
 
             if self.use_static_com:
-                J_com_world = pin.getFrameJacobian(self.pin_model, self.pin_Data, self.STATIC_COM_FRAME_ID, pin.LOCAL_WORLD_ALIGNED)
+                J_com_world = pin.getFrameJacobian(self.pin_model, self.pin_data, self.STATIC_COM_FID, pin.LOCAL_WORLD_ALIGNED)
             else:
                 J_lin = pin.jacobianCenterOfMass(self.pin_model, self.pin_data, q, False)
                 J_com_world = np.vstack((J_lin, np.zeros_like(J_lin)))
@@ -215,14 +215,14 @@ class Kinematics:
 
     @staticmethod
     def convertGenVelPintoMJC(qd_pin:np.ndarray):
-        qd = np.zeros((Kinematics.N_VEL_STATES))
-        qd[Kinematics.GEN_VEL_ID["V_X"]] = qd_pin[Kinematics.GEN_VEL_ID_MJC["V_X"]]
-        qd[Kinematics.GEN_VEL_ID["V_Z"]] = qd_pin[Kinematics.GEN_VEL_ID_MJC["V_Z"]]
-        qd[Kinematics.GEN_VEL_ID["W_Y"]] = qd_pin[Kinematics.GEN_VEL_ID_MJC["W_Y"]]
-        qd[Kinematics.GEN_VEL_ID["V_LHP"]] = qd_pin[Kinematics.GEN_VEL_ID_MJC["V_LHP"]]
-        qd[Kinematics.GEN_VEL_ID["V_LKP"]] = qd_pin[Kinematics.GEN_VEL_ID_MJC["V_LKP"]]
-        qd[Kinematics.GEN_VEL_ID["V_RHP"]] = qd_pin[Kinematics.GEN_VEL_ID_MJC["V_RHP"]]
-        qd[Kinematics.GEN_VEL_ID["V_RKP"]] = qd_pin[Kinematics.GEN_VEL_ID_MJC["V_RKP"]]
+        qd = np.zeros((Kinematics.N_VEL_STATES_MJC))
+        qd[Kinematics.GEN_VEL_ID_MJC["V_X"]] = qd_pin[Kinematics.GEN_VEL_ID["V_X"]]
+        qd[Kinematics.GEN_VEL_ID_MJC["V_Z"]] = qd_pin[Kinematics.GEN_VEL_ID["V_Z"]]
+        qd[Kinematics.GEN_VEL_ID_MJC["W_Y"]] = qd_pin[Kinematics.GEN_VEL_ID["W_Y"]]
+        qd[Kinematics.GEN_VEL_ID_MJC["V_LHP"]] = qd_pin[Kinematics.GEN_VEL_ID["V_LHP"]]
+        qd[Kinematics.GEN_VEL_ID_MJC["V_LKP"]] = qd_pin[Kinematics.GEN_VEL_ID["V_LKP"]]
+        qd[Kinematics.GEN_VEL_ID_MJC["V_RHP"]] = qd_pin[Kinematics.GEN_VEL_ID["V_RHP"]]
+        qd[Kinematics.GEN_VEL_ID_MJC["V_RKP"]] = qd_pin[Kinematics.GEN_VEL_ID["V_RKP"]]
         return qd
 
     @staticmethod

@@ -65,7 +65,10 @@ class MujocoInterface:
         if self.vis_enabled and self.mj_viewer.is_running():
             self.mj_viewer.sync()
         else:
-            raise RuntimeError("Viewer has been closed!")
+            print("Viewer has been closed!")
+    
+    def viewerActive(self):
+        return self.vis_enabled and self.mj_viewer.is_running()
 
     def getBasePosition(self) -> np.ndarray:
         return self.mj_data.qpos[:3]

@@ -1,15 +1,18 @@
 import numpy as np
 from kinematics_py.adam_kinematics import Kinematics
 from control_py.bezier import Bezier
+from control_py.poly import Poly
+from plot.logger import Logger
 
 class HLIPController:
 
-    def __init__(self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, v_ref:float=0, pitch_ref:float=0.025, use_static_com:bool=False, T_DSP:float=0):
+    def __init__(self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, v_ref:float=0, pitch_ref:float=0.025, use_static_com:bool=False, T_DSP:float=0, log_path:str="plot/log_ctrl.csv"):
         self.T_SSP = T_SSP
         self.T_DSP = T_DSP
         self.T_SSP_goal = T_SSP
         self.g = 9.81
 
+        self.z_ref_goal = z_ref
         self.z_ref = z_ref
         self.calcLambda()
         self.calcSigma1()
@@ -27,7 +30,8 @@ class HLIPController:
         self.v_ref_goal = v_ref
 
         self.pos_swf_imp = 0
-        self.vel_swf = 0.05
+        self.v_swf_tof = 0.05
+        self.v_swf_imp = -0.05
         self.z_swf_max = 0.1
         self.t_swf_max_height = 0.7
 
@@ -38,6 +42,16 @@ class HLIPController:
 
         self.swf_x_bez = Bezier(np.array([0, 0, 1, 1, 1]))
 
+        x_swf_pos_z = np.array([0, self.T_SSP, self.t_swf_max_height * self.T_SSP, 0, self.T_SSP])
+        y_swf_pos_z = np.array([0, self.pos_swf_imp, self.z_swf_max, self.v_swf_tof, self.v_swf_imp])
+        d_swf_pos_z = np.array([0, 0, 0, 1, 1])
+        self.swf_pos_z_poly = Poly(x_swf_pos_z, y_swf_pos_z, d_swf_pos_z)
+
+        self.logger = Logger(
+            log_path,
+            "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,pitchref,swfx,swfz,comx,comz,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref\n"
+        )
+
     def calcPreImpactStateRef(self, v_ref:float) -> np.ndarray:
         sigma_1 = self.lmbd / np.tanh(self.T_SSP * self.lmbd / 2)
         p_pre_ref = -v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * sigma_1)
@@ -45,10 +59,10 @@ class HLIPController:
         return np.array([p_pre_ref, v_pre_ref])
     
     def calcSSPStateRef(self, x0:np.ndarray, t:float) -> np.ndarray:
-        V = np.array([[1, 1], [self.lmbd, self.lmbd]])
+        V = np.array([[1, 1], [self.lmbd, -self.lmbd]])
         S = np.array([[np.exp(self.lmbd * t), 0], [0, np.exp(-self.lmbd * t)]])
 
-        return V @ S @ np.linalg.inv(V) * x0
+        return V @ S @ np.linalg.inv(V) @ x0
 
 
     def getU(self) -> np.ndarray:
@@ -115,20 +129,20 @@ class HLIPController:
         self.u_nom = self.v_ref * (self.T_SSP + self.T_DSP)
         x_ssp_impact_ref = np.array([
             self.v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * self.sigma1),
-            self.sigma1 * self.v_ref * (self.T_SSP + self.T_DSP) / (2 * self.T_DSP * self.sigma1)
+            self.sigma1 * self.v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * self.sigma1)
         ])
 
         v_com = self.adamKin.getVCom(q_pos_ctrl, q_vel_ctrl)
-        x_ssp_curr = np.array([
-            y_out[Kinematics.OUT_ID["COM_POS_X"]],
-            v_com[0]
-        ])
-
-        # Way this is done on other one
         # x_ssp_curr = np.array([
         #     y_out[Kinematics.OUT_ID["COM_POS_X"]],
-        #     q_vel_ctrl[Kinematics.GEN_VEL_ID_MJC["V_X"]]
+        #     v_com[0]
         # ])
+
+        # Way this is done on other one
+        x_ssp_curr = np.array([
+            y_out[Kinematics.OUT_ID["COM_POS_X"]],
+            q_vel_ctrl[Kinematics.GEN_VEL_ID_MJC["V_X"]]
+        ])
 
         x_ssp_impact = self.calcSSPStateRef(x_ssp_curr, self.T_SSP - t_phase)
 
@@ -138,14 +152,10 @@ class HLIPController:
         bht = self.swf_x_bez.eval(t_scaled)
         # dbht = self.swf_x_bez.deval(t_scaled)
 
-        swf_pos_x_ref = swf_pos_x_curr * (1 - bht) + self.u_x * bht
+        swf_pos_x_ref = swf_pos_x_curr * (1 - bht) + self.u * bht
 
         # Z-pos
-        x_swf_pos_z = np.array([0, self.T_SSP, self.z_swf_max * self.T_SSP, 0, self.T_SSP])
-        y_swf_pos_z = np.array([0, self.pos_swf_imp, self.z_swf_max, self.v_swf_tof, self.vel_swf_imp])
-        d_swf_pos_z = np.array([0, 0, 0, 1, 1])
-        p_swf_pos_z = HLIPController.getPolyCoeffs(x_swf_pos_z, y_swf_pos_z, d_swf_pos_z)
-        swf_pos_z_ref = HLIPController.evalPoly(p_swf_pos_z, t_phase, 0)
+        swf_pos_z_ref = self.swf_pos_z_poly.evalPoly(t_phase, 0)
 
         y_out_ref = np.zeros((Kinematics.N_OUTPUTS))
         y_out_ref[Kinematics.OUT_ID["PITCH"]] = self.pitch_ref
@@ -154,55 +164,16 @@ class HLIPController:
         y_out_ref[Kinematics.OUT_ID["COM_POS_X"]] = y_out[Kinematics.OUT_ID["COM_POS_X"]] # No control authority over x position
         y_out_ref[Kinematics.OUT_ID["COM_POS_Z"]] = self.z_ref
 
-        q_ref, sol_found = self.adamKin.solveIK(q, y_out_ref, self.cur_stf)
-
+        q_gen_ref, sol_found = self.adamKin.solveIK(q, y_out_ref, self.cur_stf)
+        q_ref = q_gen_ref[-4:]
+        mj_q_ref = Kinematics.convertGenPosPINtoMJC(q_gen_ref)
         # Set desired joint velocities/torques
         qd_ref = np.zeros((Kinematics.N_JOINTS,))
         q_ff_ref = np.zeros((Kinematics.N_JOINTS,))
 
+        self.logger.write(np.hstack((
+            t, t_phase, t_scaled, Kinematics.convertGenPosPINtoMJC(q_pos_ctrl), Kinematics.convertGenVelPintoMJC(q_vel_ctrl), Kinematics.convertGenPosPINtoMJC(q), self.v_ref_goal, self.v_ref, self.z_ref_goal, self.z_ref, 
+            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, mj_q_ref
+        )))
+
         return q_ref, qd_ref, q_ff_ref
-    
-
-    @staticmethod
-    def getPolyCoeffs(X:np.ndarray, Y:np.ndarray, D:np.ndarray) -> np.ndarray:
-        n = X.shape[0]
-        A = np.zeros((n,n))
-        for ii in range(n):
-            di = D(ii)
-            xi = X(ii)
-
-            for k in range(di, n):
-                A[ii, k] = HLIPController.factorial(k) / HLIPController.factorial(k - di) * pow(xi, k - di)
-
-        return np.linalg.solve(A, Y)
-    
-    @staticmethod
-    def factorial(k:int) -> int:
-        if k <= 1:
-            return 1
-        elif k == 2:
-            return 2
-        elif k == 3:
-            return 6
-        elif k == 4:
-            return 24
-        elif k == 5:
-            return 120
-        elif k == 6:
-            return 720
-        else:
-            return k * HLIPController.factorial(k - 1)
-        
-    @staticmethod
-    def evalPoly(p, x, d) -> float:
-        n = p.shape[0]
-        res = 0
-        for ii in range(d, n):
-            res += p(ii) * HLIPController.factorial(ii) / HLIPController.factorial(ii - d) * pow(x, ii - d)
-        return res
-
-
-
-
-
-

@@ -14,10 +14,10 @@ x = data.x; z = data.z; pitch = data.pitch; q1 = data.q1; q2 = data.q2; q3 = dat
 xdot = data.xdot; zdot = data.zdot; pitchdot = data.pitchdot; q1dot = data.q1dot; q2dot = data.q2dot; q3dot = data.q3dot; q4dot = data.q4dot;
 xkin = data.xkin; zkin = data.zkin; pitchkin = data.pitchkin; q1kin = data.q1kin; q2kin = data.q2kin; q3kin = data.q3kin; q4kin = data.q4kin;
 vrefgoal = data.vrefgoal; vref = data.vref; zrefgoal = data.zrefgoal; zref = data.zref;
-x_curr = data.x_ssp_curr; v_curr = data.v_ssp_curr; x_impact = data.x_ssp_impact; v_impact = data.v_ssp_impact; x_impact_ref = data.x_ssp_impact_ref; v_impact_ref = data.v_ssp_impact_ref;
+x_curr = data.x_ssp_curr; v_curr = data.v_s; x_impact = data.x_ssp_impact; v_impact = data.v_ssp_impact; x_impact_ref = data.x_ssp_impact_ref; v_impact_ref = data.v_ssp_impact_ref;
 u_nom = data.unom; u = data.u; bht = data.bht;
 pitchref = data.pitchref; x_swf_ref = data.swfx; z_swf_ref = data.swfz; x_com_ref = data.comx; z_com_ref = data.comz;
-q1ref = data.q1ref; q2ref = data.q2ref; q3ref = data.q3ref; q4ref = data.q4ref;
+
 %% And Plot
 
 fh1 = figure();
@@ -36,7 +36,7 @@ plot(t, q3)
 plot(t, q4)
 hold off;
 legend('q1', 'q2', 'q3', 'q4')
-sgtitle('Generalized Position')
+sgtitle('Position')
 
 fh2 = figure();
 subplot(2, 1, 1)
@@ -54,30 +54,4 @@ plot(t, q3dot)
 plot(t, q4dot)
 hold off;
 legend('q1dot', 'q2dot', 'q3dot', 'q4dot')
-sgtitle('Generalized Velocity')
-
-fh3 = figure();
-hold on;
-plot(t, q1ref)
-plot(t, q2ref)
-plot(t, q3ref)
-plot(t, q4ref)
-hold off;
-legend('q1ref', 'q2ref', 'q3ref', 'q4ref')
-title('Joint Reference')
-
-fh4 = figure();
-subplot(2, 1, 1)
-hold on;
-plot(t, u_nom)
-plot(t, u)
-hold off
-legend('u nominal', 'u')
-subplot(2, 1, 2)
-hold on
-plot(t, x_swf_ref)
-plot(t, z_swf_ref)
-hold off
-legend('x swf ref', 'z swf ref')
-sgtitle('Step Reference')
-
+sgtitle('Velocity')

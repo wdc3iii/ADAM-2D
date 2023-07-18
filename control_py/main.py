@@ -1,19 +1,18 @@
 import yaml
 import numpy as np
+from plot.logger import Logger
 from kinematics_py.adam_kinematics import Kinematics
 from control_py.hlip_controller import HLIPController
 from simulation_py.mujoco_interface import MujocoInterface
-from plot.logger import Logger
 
 urdf_path = "rsc/models/adam.urdf"
 mesh_path = "rsc/models/"
 xml_path = "rsc/models/adam.xml"
-log_path = "plot/log.csv"
+log_path = "plot/log_main.csv"
 
 def main():
     with open('rsc/config.yaml', 'r') as file:
         config = yaml.safe_load(file)
-    print(config)
 
     use_static_com = config["use_static_com"]
     pitch_ref = config["pitch_ref"]
@@ -28,11 +27,13 @@ def main():
     adamKin = Kinematics(urdf_path, mesh_path)
     mjInt = MujocoInterface(xml_path)
 
-    stanceFoot = True
-
     q_pos_ref = adamKin.getZeroPos()
-    
+    q_pos_ref[Kinematics.GEN_POS_ID["P_LHP"]] = -0.4
+    q_pos_ref[Kinematics.GEN_POS_ID["P_RHP"]] = -0.4
+    q_pos_ref[Kinematics.GEN_POS_ID["P_LKP"]] = 0.8
+    q_pos_ref[Kinematics.GEN_POS_ID["P_RKP"]] = 0.8
 
+    
     controller = HLIPController(T_SSP, z_ref, urdf_path, mesh_path, v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com)
     x_pre_ref = controller.calcPreImpactStateRef(v_ref)
 
@@ -43,31 +44,54 @@ def main():
     y_out_ref[Kinematics.OUT_ID["COM_POS_X"]] = x_pre_ref[0] # No control authority over x position
     y_out_ref[Kinematics.OUT_ID["COM_POS_Z"]] = z_ref
 
-    q_pos_ref[Kinematics.GEN_POS_ID["P_Z"]] = z_ref + 0.06
+    q_pos_ref, _ = adamKin.solveIK(q_pos_ref, y_out_ref, True)
+
+    # q_pos_ref[Kinematics.GEN_POS_ID["P_Z"]] = z_ref + 0.06
     mj_q_pos_ref = adamKin.convertGenPosPINtoMJC(q_pos_ref)
     q_vel_ref = np.zeros((Kinematics.N_VEL_STATES,))
     mj_q_vel_ref = adamKin.convertGenVelPintoMJC(q_vel_ref)
 
-    logger = Logger(log_path)
+    mjInt.setState(mj_q_pos_ref, mj_q_vel_ref)
+
+    logger = Logger(log_path, "t,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,q1ref,q2ref,q3ref,q4ref,q1dotref,q2dotref,q3dotref,q4dotref,tau1,tau2,tau3,tau4\n")
+
 
     ref_ind = 0
-    while True:
+    while mjInt.viewerActive():
 
         t_vis = mjInt.time()
 
         while mjInt.time() - t_vis <= 1 / 60:
             t = mjInt.time()
 
-            if ref_ind < t_ref_list.size and t >= t_ref_list[ref_ind]:
+            if ref_ind < len(t_ref_list) and t >= t_ref_list[ref_ind]:
                 v_ref = v_ref_list[ref_ind]
                 z_ref = z_ref_list[ref_ind]
                 ref_ind += 1
                 print(f"Reference Changed: v = {v_ref}, z = {z_ref}")
+                controller.setV_ref(v_ref)
+                controller.setZ_ref(z_ref)
+
+            mj_qpos = mjInt.getGenPosition()
+            mj_qvel = mjInt.getGenVelocity()
+            q_pos = Kinematics.convertGenPosMJCtoPIN(mj_qpos)
+            q_vel = Kinematics.convertGenVelMJCtoPin(mj_qvel)
+            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(q_pos, q_pos, q_vel, t)
+
+            mjInt.jointPosCmd(q_pos_ref)
+            mjInt.jointVelCmd(q_vel_ref)
+            mjInt.jointTorCmd(q_ff_ref)
+
+            log_data = np.hstack((
+                t, mj_qpos, mj_qvel, q_pos_ref, q_vel_ref, q_ff_ref
+            ))
             logger.write(log_data)
 
+            mjInt.step()
+
         mjInt.updateScene()
-
-
+    
+    logger.close()
 
 
 if __name__ == "__main__":

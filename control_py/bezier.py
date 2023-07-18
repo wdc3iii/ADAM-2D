@@ -50,7 +50,7 @@ class Bezier:
         raise ValueError("Order 3 Not Implemented Yet")
 
     def evalOrder4(self, t:float) -> float:
-        return self.coeffs[0] * pow(t, 4) + 4 * self.coeffs[1] * pow(t, 3) * (1 -t) + 6 * self.coeffs[2] * pow(t, 2) * pow(1 - t, 2) + 4 * self.coeffs[3] * t * pow(1 - t, 3) + self.coeffs[4] * pow(1 - t, 4)
+        return self.coeffs[0] * pow(1 - t, 4) + 4 * self.coeffs[1] * pow(1 - t, 3) * t + 6 * self.coeffs[2] * pow(t, 2) * pow(1 - t, 2) + 4 * self.coeffs[3] * (1 - t) * pow(t, 3) + self.coeffs[4] * pow(t, 4)
 
     def evalOrder5(self, t:float) -> float:
         raise ValueError("Order 5 Not Implemented Yet")
@@ -75,3 +75,14 @@ class Bezier:
 
     def devalOrder6(self, t:float) -> float:
         raise ValueError("Order 6 Not Implemented Yet")
+    
+
+if __name__ == "__main__":
+    swf_x_bez = Bezier(np.array([0, 0, 1, 1, 1]))
+    t = np.linspace(0, 1)
+
+    import matplotlib.pyplot as plt
+
+    plt.figure()
+    plt.plot(t, [swf_x_bez.eval(tii) for tii in t])
+    plt.show()
