@@ -18,7 +18,7 @@ x_curr = data.x_ssp_curr; v_curr = data.v_ssp_curr; x_impact = data.x_ssp_impact
 u_nom = data.unom; u = data.u; bht = data.bht;
 pitchref = data.pitchref; x_swf_ref = data.swfx; z_swf_ref = data.swfz; x_com_ref = data.comx; z_com_ref = data.comz;
 q1ref = data.q1ref; q2ref = data.q2ref; q3ref = data.q3ref; q4ref = data.q4ref;
-%% And Plot
+%% Plot Joints
 
 fh1 = figure();
 subplot(2, 1, 1)
@@ -38,6 +38,7 @@ hold off;
 legend('q1', 'q2', 'q3', 'q4')
 sgtitle('Generalized Position')
 
+%% Plot Velocities
 fh2 = figure();
 subplot(2, 1, 1)
 hold on;
@@ -56,6 +57,7 @@ hold off;
 legend('q1dot', 'q2dot', 'q3dot', 'q4dot')
 sgtitle('Generalized Velocity')
 
+%% Plot Joint References
 fh3 = figure();
 hold on;
 plot(t, q1ref)
@@ -66,6 +68,7 @@ hold off;
 legend('q1ref', 'q2ref', 'q3ref', 'q4ref')
 title('Joint Reference')
 
+%% Plot Step Lengths
 fh4 = figure();
 subplot(2, 1, 1)
 hold on;
@@ -81,6 +84,7 @@ hold off
 legend('x swf ref', 'z swf ref')
 sgtitle('Step Reference')
 
+%% Plot HLIP Predictions
 fh5 = figure();
 subplot(2, 1, 1)
 hold on
@@ -96,3 +100,33 @@ plot(t, v_impact)
 plot(t, v_impact_ref)
 hold off
 legend('v com', 'predicted v com impact', 'v com impact ref')
+sgtitle('HLIP Approximation')
+
+
+%% Plot Tracking Accuracy
+figure();
+subplot(2, 2, 1)
+hold on
+plot(t, q1)
+plot(t, q1ref)
+hold off
+legend('q1', 'q1ref')
+subplot(2, 2, 2)
+hold on
+plot(t, q2)
+plot(t, q2ref)
+hold off
+legend('q2', 'q2ref')
+subplot(2, 2, 3)
+hold on
+plot(t, q3)
+plot(t, q3ref)
+hold off
+legend('q3', 'q3ref')
+subplot(2, 2, 4)
+hold on
+plot(t, q4)
+plot(t, q4ref)
+hold off
+legend('q4', 'q4ref')
+sgtitle('Tracking performance')

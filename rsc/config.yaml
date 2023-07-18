@@ -6,11 +6,11 @@ z_hip_to_torso: 0.186
 T_SSP: 0.4
 swf_pos_y: -0.08225
 
-# ref_times: [3, 10, 15]
-# v_ref: [0.5, 0, -0.4]
-# z_ref: [0.6, 0.6, 0.6]
-ref_times: [3]
-v_ref: [0.5]
-z_ref: [0.6]
+ref_times: [0, 3, 15]
+v_ref: [0, 0.5, -0.4]
+z_ref: [0.6, 0.6, 0.6]
+# ref_times: [3]
+# v_ref: [0.5]
+# z_ref: [0.6]
 
-use_static_com: true
+use_static_com: false
