@@ -5,9 +5,9 @@ from kinematics_py.adam_kinematics import Kinematics
 from control_py.hlip_controller import HLIPController
 from simulation_py.mujoco_interface import MujocoInterface
 
-urdf_path = "rsc/models/adam.urdf"
+urdf_path = "rsc/models/adam2d.urdf"
 mesh_path = "rsc/models/"
-xml_path = "rsc/models/adam.xml"
+xml_path = "rsc/models/adam2d.xml"
 log_path = "plot/log_main.csv"
 
 def main():
@@ -46,12 +46,14 @@ def main():
 
     q_pos_ref, _ = adamKin.solveIK(q_pos_ref, y_out_ref, True)
 
-    # q_pos_ref[Kinematics.GEN_POS_ID["P_Z"]] = z_ref + 0.06
-    mj_q_pos_ref = adamKin.convertGenPosPINtoMJC(q_pos_ref)
+    # q_pos_ref[Kinematics.GEN_POS_ID["P_Z"]] += 0.71 - z_ref
     q_vel_ref = np.zeros((Kinematics.N_VEL_STATES,))
-    mj_q_vel_ref = adamKin.convertGenVelPintoMJC(q_vel_ref)
 
-    mjInt.setState(mj_q_pos_ref, mj_q_vel_ref)
+    mjInt.setState(q_pos_ref, q_vel_ref)
+    mjInt.forward()
+    ft_pos = mjInt.getFootPos()
+    q_pos_ref[Kinematics.GEN_POS_ID['P_Z']] -= ft_pos[0][1]
+    mjInt.setState(q_pos_ref, q_vel_ref)
 
     logger = Logger(log_path, "t,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,q1ref,q2ref,q3ref,q4ref,q1dotref,q2dotref,q3dotref,q4dotref,tau1,tau2,tau3,tau4\n")
 
@@ -72,18 +74,16 @@ def main():
                 controller.setV_ref(v_ref)
                 controller.setZ_ref(z_ref)
 
-            mj_qpos = mjInt.getGenPosition()
-            mj_qvel = mjInt.getGenVelocity()
-            q_pos = Kinematics.convertGenPosMJCtoPIN(mj_qpos)
-            q_vel = Kinematics.convertGenVelMJCtoPin(mj_qvel)
-            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(q_pos, q_pos, q_vel, t)
+            qpos = mjInt.getGenPosition()
+            qvel = mjInt.getGenVelocity()
+            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(qpos, qpos, qvel, t)
 
             mjInt.jointPosCmd(q_pos_ref)
             mjInt.jointVelCmd(q_vel_ref)
             mjInt.jointTorCmd(q_ff_ref)
 
             log_data = np.hstack((
-                t, mj_qpos, mj_qvel, q_pos_ref, q_vel_ref, q_ff_ref
+                t, qpos, qvel, q_pos_ref, q_vel_ref, q_ff_ref
             ))
             logger.write(log_data)
 

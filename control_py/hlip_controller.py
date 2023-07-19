@@ -149,7 +149,7 @@ class HLIPController:
         # Way this is done on other one
         x_ssp_curr = np.array([
             y_out[Kinematics.OUT_ID["COM_POS_X"]],
-            q_vel_ctrl[Kinematics.GEN_VEL_ID_MJC["V_X"]]
+            q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]]
         ])
 
         x_ssp_impact = self.calcSSPStateRef(x_ssp_curr, self.T_SSP - t_phase)
@@ -174,14 +174,13 @@ class HLIPController:
 
         q_gen_ref, sol_found = self.adamKin.solveIK(q, y_out_ref, self.cur_stf)
         q_ref = q_gen_ref[-4:]
-        mj_q_ref = Kinematics.convertGenPosPINtoMJC(q_gen_ref)
         # Set desired joint velocities/torques
         qd_ref = np.zeros((Kinematics.N_JOINTS,))
         q_ff_ref = np.zeros((Kinematics.N_JOINTS,))
 
         self.logger.write(np.hstack((
-            t, t_phase, t_scaled, Kinematics.convertGenPosPINtoMJC(q_pos_ctrl), Kinematics.convertGenVelPintoMJC(q_vel_ctrl), Kinematics.convertGenPosPINtoMJC(q), self.v_ref_goal, self.v_ref, self.z_ref_goal, self.z_ref, 
-            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, mj_q_ref
+            t, t_phase, t_scaled, q_pos_ctrl, q_vel_ctrl, q, self.v_ref_goal, self.v_ref, self.z_ref_goal, self.z_ref, 
+            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, q_gen_ref
         )))
 
         return q_ref, qd_ref, q_ff_ref

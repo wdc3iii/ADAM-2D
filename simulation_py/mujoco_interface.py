@@ -159,7 +159,9 @@ class MujocoInterface:
 
 if __name__ == "__main__":
     import time
-    mjInt = MujocoInterface("rsc/models/adam.xml")
+    # mjInt = MujocoInterface("rsc/models/adam.xml")
+
+    mjInt = MujocoInterface("rsc/models/adam_no_pv_ctrl.xml")
 
     t0 = time.time()
     while True:
