@@ -5,9 +5,11 @@ from kinematics_py.adam_kinematics import Kinematics
 from control_py.hlip_controller import HLIPController
 from simulation_py.mujoco_interface import MujocoInterface
 
-urdf_path = "rsc/models/adam2d.urdf"
+urdf_path = "rsc/models/adam2d_lightlimbs.urdf"
+xml_path = "rsc/models/adam2d_lightlimbs.xml"
+# urdf_path = "rsc/models/adam2d.urdf"
+# xml_path = "rsc/models/adam2d.xml"
 mesh_path = "rsc/models/"
-xml_path = "rsc/models/adam2d.xml"
 log_path = "plot/log_main.csv"
 
 def main():
@@ -15,6 +17,7 @@ def main():
         config = yaml.safe_load(file)
 
     use_static_com = config["use_static_com"]
+    gravity_comp = config["gravity_comp"]
     pitch_ref = config["pitch_ref"]
 
     t_ref_list = config["ref_times"]
@@ -34,7 +37,7 @@ def main():
     q_pos_ref[Kinematics.GEN_POS_ID["P_RKP"]] = 0.8
 
     
-    controller = HLIPController(T_SSP, z_ref, urdf_path, mesh_path, v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com)
+    controller = HLIPController(T_SSP, z_ref, urdf_path, mesh_path, v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com, grav_comp=gravity_comp)
     x_pre_ref = controller.calcPreImpactStateRef(v_ref)
 
     y_out_ref = np.zeros((Kinematics.N_OUTPUTS))
@@ -52,7 +55,7 @@ def main():
     mjInt.setState(q_pos_ref, q_vel_ref)
     mjInt.forward()
     ft_pos = mjInt.getFootPos()
-    q_pos_ref[Kinematics.GEN_POS_ID['P_Z']] -= ft_pos[0][1]
+    q_pos_ref[Kinematics.GEN_POS_ID['P_Z']] -= ft_pos[0][1] + 0.001
     mjInt.setState(q_pos_ref, q_vel_ref)
 
     logger = Logger(log_path, "t,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,q1ref,q2ref,q3ref,q4ref,q1dotref,q2dotref,q3dotref,q4dotref,tau1,tau2,tau3,tau4\n")
@@ -65,6 +68,7 @@ def main():
 
         while mjInt.time() - t_vis <= 1 / 60:
             t = mjInt.time()
+            mjInt.getContact()
 
             if ref_ind < len(t_ref_list) and t >= t_ref_list[ref_ind]:
                 v_ref = v_ref_list[ref_ind]
@@ -76,7 +80,7 @@ def main():
 
             qpos = mjInt.getGenPosition()
             qvel = mjInt.getGenVelocity()
-            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(qpos, qpos, qvel, t)
+            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(qpos, qpos, qvel, t, mjInt.rightContact, mjInt.leftContact)
 
             mjInt.jointPosCmd(q_pos_ref)
             mjInt.jointVelCmd(q_vel_ref)

@@ -177,9 +177,4 @@ title('Feedfoward Torque')
 %% Plot CoM velocity approxes
 figure();
 hold on;
-plot(t, vcom)
-plot(t, vstatic)
-plot(t, vbody)
-hold off;
-legend("CoM", "Static", "Body")
-title("CoM Velocity Approximations")
+pl

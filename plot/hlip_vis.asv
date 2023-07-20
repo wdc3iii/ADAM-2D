@@ -1,0 +1,15 @@
+%% HLIP Vis
+
+clear; clc; close all;
+
+%% Define System
+zref = 0.6;
+lam = sqrt(9.81 / zref);
+A = [0 1; lam ^2 0];
+x0 = [0.1; 0.6];
+xt = [];
+for ii = 1:5
+    [t, y] = ode45(@(t, x) A * x, [0, 0.4], x0);
+    x0 = y(end, :);
+    xt = [xt y];
+end

@@ -35,7 +35,6 @@ class Kinematics:
 
         self.use_static_com = use_static_com
 
-        # self.pin_model, _, _ = pin.buildModelsFromUrdf(urdf_path, mesh_path, pin.JointModelFreeFlyer())
         self.pin_model, self.collision_model, self.visual_model = pin.buildModelsFromUrdf(urdf_path, mesh_path)
 
         self.pin_data = self.pin_model.createData()
@@ -66,8 +65,6 @@ class Kinematics:
             stf_fid = self.RIGHT_FOOT_FID
             swf_fid = self.LEFT_FOOT_FID
 
-        
-
         if self.use_static_com:
             com_pos_world = self.pin_data.oMf[self.STATIC_COM_FID].translation
         else:
@@ -86,15 +83,28 @@ class Kinematics:
 
         return y_out
 
-    def calcGravityCompensation(self, q:np.ndarray) -> np.ndarray:
+    def calcGravityCompensation(self, q:np.ndarray, stanceFoot:bool) -> np.ndarray:
+        if stanceFoot:
+            stf_fid = self.LEFT_FOOT_FID
+        else:
+            stf_fid = self.RIGHT_FOOT_FID
         g = pin.computeGeneralizedGravity(self.pin_model, self.pin_data, q)
-        Jc = pin.getConstraintJacobian(self.pin_model, self.pin_data, contact_model, contact_data)
+        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
+        Jc = pin.getFrameJacobian(self.pin_model, self.pin_data, stf_fid, pin.LOCAL_WORLD_ALIGNED)[0:3:2, :]
 
-        Q, R = np.linalg.qr(Jc)
-        Su = np.hstack((np.zeros((7, 5)), np.eye(7)))
-        S = np.vstack((np.zeros((6, 4)), np.eye(4)))
+        Q, R = np.linalg.qr(Jc.transpose(), mode='complete')
+        Su = np.hstack((np.zeros((5, 2)), np.eye(5)))
+        S = np.vstack((np.zeros((3, 4)), np.eye(4))).transpose()
         return np.linalg.pinv(Su @ np.transpose(Q) @ np.transpose(S)) @ Su @ np.transpose(Q) @ g
-        print(g)
+
+        # Attempt with phantom ankle actuation for gravity comp
+        # Su = np.hstack((np.zeros((5, 2)), np.eye(5)))
+        # S = np.vstack((np.zeros((2, 5)), np.eye(5))).transpose()
+        # tau = np.linalg.solve(Su @ np.transpose(Q) @ np.transpose(S), Su @ np.transpose(Q) @ g)
+        # return tau[-4:]
+
+        # Lol there are contact dynamics this doesn't consider
+        # return g[-4:]
 
     def fk_CoM(self) -> np.ndarray:
         return self.pin.centerOfMass(self.pin_model, self.pin_data)
@@ -103,10 +113,13 @@ class Kinematics:
         self.pin_data.oMf[self.STATIC_COM_FID].translation
 
     def v_CoM(self, q:np.ndarray, qd:np.ndarray) -> np.ndarray:
-        pass
+        Jcom = pin.jacobianCenterOfMass(self.pin_model, self.pin_data, q)
+        return Jcom @ qd
 
     def v_StaticCom(self, q:np.ndarray, qd:np.array) -> np.ndarray:
-        pass 
+        self.updateFramePlacements(q)
+        Jstatic = pin.getFrameJacobian(self.pin_model, self.pin_data, self.STATIC_COM_FID, pin.LOCAL_WORLD_ALIGNED)
+        return Jstatic @ qd
 
     def getVCom(self, q:np.ndarray, qd:np.ndarray) -> np.ndarray:
         if self.use_static_com:
@@ -183,90 +196,102 @@ class Kinematics:
 
 
 if __name__ == "__main__":
-    from simulation_py.mujoco_interface import MujocoInterface
-
     adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
-    mjInt = MujocoInterface("rsc/models/adam2d.xml", vis_enabled=False)
 
-    # First, check the Forward kinematics in the zero (base) position
     q_zero = adamKin.getZeroPos()
     stanceFoot = True
     y_pin = adamKin.calcOutputs(q_zero, stanceFoot)
+
+    tau = adamKin.calcGravityCompensation(q_zero, stanceFoot)
+
+    print(tau)
+
+
+# if __name__ == "__main__":
+#     from simulation_py.mujoco_interface import MujocoInterface
+
+#     adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
+#     mjInt = MujocoInterface("rsc/models/adam2d.xml", vis_enabled=False)
+
+#     # First, check the Forward kinematics in the zero (base) position
+#     q_zero = adamKin.getZeroPos()
+#     stanceFoot = True
+#     y_pin = adamKin.calcOutputs(q_zero, stanceFoot)
     
-    q_zerovel = np.zeros_like(mjInt.getGenVelocity())
-    mjInt.setState(q_zero, q_zerovel)
-    mjInt.forward()
+#     q_zerovel = np.zeros_like(mjInt.getGenVelocity())
+#     mjInt.setState(q_zero, q_zerovel)
+#     mjInt.forward()
 
-    mj_com = mjInt.getCoMPosition()
-    mj_feet = mjInt.getFootPos()
-    mj_stance = mj_feet[int(stanceFoot)]
-    mj_swing = mj_feet[int(not stanceFoot)]
-    y_mj = np.hstack(
-        (q_zero[Kinematics.GEN_POS_ID["R_Y"]], mj_swing - mj_stance, mj_com - mj_swing)
-    )
+#     mj_com = mjInt.getCoMPosition()
+#     mj_feet = mjInt.getFootPos()
+#     mj_stance = mj_feet[int(stanceFoot)]
+#     mj_swing = mj_feet[int(not stanceFoot)]
+#     y_mj = np.hstack(
+#         (q_zero[Kinematics.GEN_POS_ID["R_Y"]], mj_swing - mj_stance, mj_com - mj_swing)
+#     )
 
-    print("Check the Forward kinematics in the zero (base) position")
-    print("Y (pin): ", y_pin)
-    print("Y (mj) : ", y_mj) 
-    print("error  : ", y_pin - y_mj)
+#     print("Check the Forward kinematics in the zero (base) position")
+#     print("Y (pin): ", y_pin)
+#     print("Y (mj) : ", y_mj) 
+#     print("error  : ", y_pin - y_mj)
 
-    # Now, check the pinocchio inverse kinematics
-    max_error = 0
-    delta = 0.1
-    for ii in range(1000):
-        print("\n\nIK Test ", ii)
-        q_sol = adamKin.getZeroPos()
+#     # Now, check the pinocchio inverse kinematics
+#     max_error = 0
+#     delta = 0.1
+#     for ii in range(1000):
+#         print("\n\nIK Test ", ii)
+#         q_sol = adamKin.getZeroPos()
 
-        q_sol[Kinematics.GEN_POS_ID["R_Y"]] = np.random.random() * 0.4 - 0.2
-        q_sol[Kinematics.GEN_POS_ID["P_LHP"]] = np.random.random() * np.pi / 2 - np.pi / 4
-        q_sol[Kinematics.GEN_POS_ID["P_RHP"]] = np.random.random() * np.pi / 2 - np.pi / 4
-        q_sol[Kinematics.GEN_POS_ID["P_LKP"]] = np.random.random() * np.pi / 2
-        q_sol[Kinematics.GEN_POS_ID["P_RKP"]] = np.random.random() * np.pi / 2
+#         q_sol[Kinematics.GEN_POS_ID["R_Y"]] = np.random.random() * 0.4 - 0.2
+#         q_sol[Kinematics.GEN_POS_ID["P_LHP"]] = np.random.random() * np.pi / 2 - np.pi / 4
+#         q_sol[Kinematics.GEN_POS_ID["P_RHP"]] = np.random.random() * np.pi / 2 - np.pi / 4
+#         q_sol[Kinematics.GEN_POS_ID["P_LKP"]] = np.random.random() * np.pi / 2
+#         q_sol[Kinematics.GEN_POS_ID["P_RKP"]] = np.random.random() * np.pi / 2
 
-        y_sol = adamKin.calcOutputs(q_sol, stanceFoot)
+#         y_sol = adamKin.calcOutputs(q_sol, stanceFoot)
 
-        q_ik = np.copy(q_zero)
-        q_ik[Kinematics.GEN_POS_ID["P_LHP"]] = q_sol[Kinematics.GEN_POS_ID["P_LHP"]] + np.random.random() * delta * 2 - delta
-        q_ik[Kinematics.GEN_POS_ID["P_RHP"]] = q_sol[Kinematics.GEN_POS_ID["P_RHP"]] + np.random.random() * delta * 2 - delta
-        q_ik[Kinematics.GEN_POS_ID["P_LKP"]] = q_sol[Kinematics.GEN_POS_ID["P_LKP"]] + np.random.random() * delta * 2 - delta
-        q_ik[Kinematics.GEN_POS_ID["P_RKP"]] = q_sol[Kinematics.GEN_POS_ID["P_RKP"]] + np.random.random() * delta * 2 - delta
+#         q_ik = np.copy(q_zero)
+#         q_ik[Kinematics.GEN_POS_ID["P_LHP"]] = q_sol[Kinematics.GEN_POS_ID["P_LHP"]] + np.random.random() * delta * 2 - delta
+#         q_ik[Kinematics.GEN_POS_ID["P_RHP"]] = q_sol[Kinematics.GEN_POS_ID["P_RHP"]] + np.random.random() * delta * 2 - delta
+#         q_ik[Kinematics.GEN_POS_ID["P_LKP"]] = q_sol[Kinematics.GEN_POS_ID["P_LKP"]] + np.random.random() * delta * 2 - delta
+#         q_ik[Kinematics.GEN_POS_ID["P_RKP"]] = q_sol[Kinematics.GEN_POS_ID["P_RKP"]] + np.random.random() * delta * 2 - delta
 
-        q_ik, sol_found = adamKin.solveIK(q_ik, y_sol, stanceFoot)
+#         q_ik, sol_found = adamKin.solveIK(q_ik, y_sol, stanceFoot)
 
-        y_ik = adamKin.calcOutputs(q_ik, stanceFoot)
+#         y_ik = adamKin.calcOutputs(q_ik, stanceFoot)
 
-        print("\tq_sol: ", q_sol)
-        print("\tq_ik : ", q_ik)
-        print("\ty_sol: ", y_sol)
-        print("\ty_ik : ", y_ik)
+#         print("\tq_sol: ", q_sol)
+#         print("\tq_ik : ", q_ik)
+#         print("\ty_sol: ", y_sol)
+#         print("\ty_ik : ", y_ik)
 
-        if not sol_found:
-            print("Error in solution")
-            exit(0)
+#         if not sol_found:
+#             print("Error in solution")
+#             exit(0)
 
-        mjInt.setState(q_sol, q_zerovel)
-        mjInt.forward()
+#         mjInt.setState(q_sol, q_zerovel)
+#         mjInt.forward()
 
-        mj_com = mjInt.getCoMPosition()
-        mj_feet = mjInt.getFootPos()
-        mj_stance = mj_feet[int(stanceFoot)]
-        mj_swing = mj_feet[int(not stanceFoot)]
-        y_mj = np.hstack(
-            (q_sol[Kinematics.GEN_POS_ID["R_Y"]], mj_swing - mj_stance, mj_com - mj_stance)
-        )
+#         mj_com = mjInt.getCoMPosition()
+#         mj_feet = mjInt.getFootPos()
+#         mj_stance = mj_feet[int(stanceFoot)]
+#         mj_swing = mj_feet[int(not stanceFoot)]
+#         y_mj = np.hstack(
+#             (q_sol[Kinematics.GEN_POS_ID["R_Y"]], mj_swing - mj_stance, mj_com - mj_stance)
+#         )
 
-        print("\n\tCheck the Forward kinematics in the IK position vs Mujoco")
-        print("\tY (pin): ", y_sol)
-        print("\tY (mj) : ", y_mj) 
-        print("\terror  : ", y_sol - y_mj)
+#         print("\n\tCheck the Forward kinematics in the IK position vs Mujoco")
+#         print("\tY (pin): ", y_sol)
+#         print("\tY (mj) : ", y_mj) 
+#         print("\terror  : ", y_sol - y_mj)
 
-        if np.linalg.norm(y_sol - y_mj) > max_error:
-            max_error = np.linalg.norm(y_sol - y_mj)
-            max_error_pin_y = y_sol
-            max_error_mjc_y = y_mj
-            max_error_q = q_sol
+#         if np.linalg.norm(y_sol - y_mj) > max_error:
+#             max_error = np.linalg.norm(y_sol - y_mj)
+#             max_error_pin_y = y_sol
+#             max_error_mjc_y = y_mj
+#             max_error_q = q_sol
     
-    print("\n\nMaximum Error between Pinocchio and Mujoco Outputs: ", max_error, "\n\tPin Y: ", max_error_pin_y, "\n\tMjc Y: ", max_error_mjc_y, "\n\tQ: ", max_error_q)
+#     print("\n\nMaximum Error between Pinocchio and Mujoco Outputs: ", max_error, "\n\tPin Y: ", max_error_pin_y, "\n\tMjc Y: ", max_error_mjc_y, "\n\tQ: ", max_error_q)
 
 
 # if __name__ == "__main__":
@@ -294,13 +319,3 @@ if __name__ == "__main__":
 
 #         for ii in range(model.njoints):
 #             print(model.names[ii], ": ", data.oMi[ii].translation, "\n", data.oMi[ii].rotation, "\n")
-
-
-# if __name__ == "__main__":
-#     adamKin = Kinematics("rsc/models/adam.urdf", "rsc/models/")
-
-#     q_zero = adamKin.getZeroPos()
-#     stanceFoot = True
-#     y_pin = adamKin.calcOutputs(q_zero, stanceFoot)
-    
-#     adamKin.calcGravityCompensation(q_zero)

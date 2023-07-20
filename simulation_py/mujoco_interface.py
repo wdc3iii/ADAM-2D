@@ -15,6 +15,8 @@ class MujocoInterface:
             self.active = False
             self.force = np.zeros((3,))
             self.torque = np.zeros((3,))
+            self.rightContact = False
+            self.leftContact = False
 
         def setForce(self, force):
             self.force = force
@@ -127,6 +129,8 @@ class MujocoInterface:
     def resetContact(self) -> None:
         for (contact_pair_name, contact_data) in self.contact_map.items():
             contact_data.setActive(False)
+        self.rightContact = False
+        self.leftContact = False
     
     def time(self) -> float:
         return self.mj_data.time
@@ -151,8 +155,13 @@ class MujocoInterface:
                     contact_data.force = R @ contact_force_contframe
                     contact_data.torque = R @ contact_torque_contframe
 
-                    print(contact_data.force, contact_data.torque)
+                    # print(contact_data.force, contact_data.torque)
 
+                    if contact_data.id_parent == 7 or contact_data.id_child == 7:
+                        self.leftContact = True
+                    elif contact_data.id_parent == 12 or contact_data.id_child == 12:
+                        self.rightContact = True
+                    
                     break
 
 

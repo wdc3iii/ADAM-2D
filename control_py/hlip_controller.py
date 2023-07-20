@@ -7,15 +7,16 @@ from plot.logger import Logger
 class HLIPController:
 
     def __init__(
-            self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, v_ref:float=0, pitch_ref:float=0.025,
+            self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, grav_comp:bool=True, v_ref:float=0, pitch_ref:float=0.025,
             v_max_change:float=0.1, z_max_change:float=0.02, x_bez:np.ndarray=np.array([0,0,1,1,1]),
-            vswf_tof:float=0.05, vswf_imp:float=-0.05, zswf_max:float=0.1, pswf_max:float=0.7,
+            vswf_tof:float=0.05, vswf_imp:float=-0.05, zswf_max:float=0.075, pswf_max:float=0.7,
             use_static_com:bool=False, T_DSP:float=0, log_path:str="plot/log_ctrl.csv"
         ):
         self.T_SSP = T_SSP
         self.T_DSP = T_DSP
         self.T_SSP_goal = T_SSP
         self.g = 9.81
+        self.gravity_comp = grav_comp
 
         self.z_ref_goal = z_ref
         self.z_ref = z_ref
@@ -54,7 +55,7 @@ class HLIPController:
 
         self.logger = Logger(
             log_path,
-            "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,pitchref,swfx,swfz,comx,comz,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref\n"
+            "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,ypitch,yswfx,yswfz,ycomx,ycomz,ypitchref,yswfxref,yswfzref,ycomxref,ycomzref,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref,tau1,tau2,tau3,tau4,vcom,vstatic,vbody\n"
         )
 
     def calcPreImpactStateRef(self, v_ref:float) -> np.ndarray:
@@ -82,7 +83,7 @@ class HLIPController:
     def calcSigma2(self) -> None:
         self.sigma2 = self.lmbd * np.tanh(self.T_SSP * self.lmbd / 2)
     
-    def calcD2(lmbd:float, T_SSP:float, T_DSP:float, v_ref:float) -> float:
+    def calcD2(self, lmbd:float, T_SSP:float, T_DSP:float, v_ref:float) -> float:
         return (lmbd * lmbd / np.cosh(lmbd * T_SSP / 2) * (T_SSP + T_DSP) * v_ref) / (lmbd * lmbd * T_DSP + 2 * HLIPController.calcSigma2(lmbd, T_SSP))
     
     def setT_SSP(self, T_SSP:float) -> None:
@@ -97,7 +98,7 @@ class HLIPController:
     def setPitchRef(self, pitch_ref):
         self.pitch_ref = pitch_ref
 
-    def gaitController(self, q:np.ndarray, q_pos_ctrl:np.ndarray, q_vel_ctrl:np.ndarray, t:float) -> tuple:
+    def gaitController(self, q:np.ndarray, q_pos_ctrl:np.ndarray, q_vel_ctrl:np.ndarray, t:float, right_cont:bool, left_cont:bool) -> tuple:
         t_phase = t - self.t_phase_start
 
         t_scaled = t_phase / self.T_SSP
@@ -105,7 +106,11 @@ class HLIPController:
         y_out = self.adamKin.calcOutputs(q_pos_ctrl, self.cur_stf)
         swf_height = y_out[Kinematics.OUT_ID["SWF_POS_Z"]]
 
+        
         if t_scaled >= 1 or (t_scaled > 0.5 and swf_height < 0.001):
+        # if t_scaled > 1.5 or (t_scaled > 0.5 and ((self.cur_stf and right_cont) or (not self.cur_stf and left_cont))):
+            # print("impact")
+            # print(f"SWF Z at 'contact' {swf_height}, t_scaled at 'contact' {t_scaled}")
             t_scaled = 0
             t_phase = 0
             self.t_phase_start = t
@@ -140,21 +145,31 @@ class HLIPController:
             self.sigma1 * self.v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * self.sigma1)
         ])
 
-        v_com = self.adamKin.getVCom(q_pos_ctrl, q_vel_ctrl)
-        # x_ssp_curr = np.array([
-        #     y_out[Kinematics.OUT_ID["COM_POS_X"]],
-        #     v_com[0]
-        # ])
 
-        # Way this is done on other one
+        v_com = self.adamKin.v_CoM(q_pos_ctrl, q_vel_ctrl)
+        v_static = self.adamKin.v_StaticCom(q_pos_ctrl, q_vel_ctrl)
+
+        v_com = self.adamKin.getVCom(q_pos_ctrl, q_vel_ctrl)
         x_ssp_curr = np.array([
             y_out[Kinematics.OUT_ID["COM_POS_X"]],
-            q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]]
+            v_com[0]
         ])
+
+        # Way this is done on other one
+        # x_ssp_curr = np.array([
+        #     y_out[Kinematics.OUT_ID["COM_POS_X"]],
+        #     q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]]
+        # ])
 
         x_ssp_impact = self.calcSSPStateRef(x_ssp_curr, self.T_SSP - t_phase)
 
         self.u = self.u_nom + self.K_deadbeat @ (x_ssp_impact - x_ssp_impact_ref)
+
+        if self.u > 0.5:
+            print(f"Large Step {self.u} Requested")
+
+        # if self.u > 0.4:
+        #     self.u = 0.4
 
         swf_pos_x_curr = y_out[Kinematics.OUT_ID["SWF_POS_X"]]
         bht = self.swf_x_bez.eval(t_scaled)
@@ -173,14 +188,21 @@ class HLIPController:
         y_out_ref[Kinematics.OUT_ID["COM_POS_Z"]] = self.z_ref
 
         q_gen_ref, sol_found = self.adamKin.solveIK(q, y_out_ref, self.cur_stf)
+
+        if not sol_found:
+            print('No solution found for IK', y_out_ref)
+
         q_ref = q_gen_ref[-4:]
         # Set desired joint velocities/torques
         qd_ref = np.zeros((Kinematics.N_JOINTS,))
-        q_ff_ref = np.zeros((Kinematics.N_JOINTS,))
+        if self.gravity_comp:
+            q_ff_ref = self.adamKin.calcGravityCompensation(q_pos_ctrl, self.cur_stf)
+        else:
+            q_ff_ref = np.zeros((Kinematics.N_JOINTS,))
 
         self.logger.write(np.hstack((
             t, t_phase, t_scaled, q_pos_ctrl, q_vel_ctrl, q, self.v_ref_goal, self.v_ref, self.z_ref_goal, self.z_ref, 
-            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, q_gen_ref
+            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, y_out_ref, q_gen_ref, q_ff_ref, v_com[0], v_static[0], q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]]
         )))
 
         return q_ref, qd_ref, q_ff_ref
