@@ -21,7 +21,8 @@ y_pitch = data.ypitch; x_swf = data.yswfx; z_swf = data.yswfz; x_com = data.ycom
 q1ref = data.q1ref; q2ref = data.q2ref; q3ref = data.q3ref; q4ref = data.q4ref;
 tau1 = data.tau1; tau2 = data.tau2; tau3 = data.tau3; tau4 = data.tau4;
 vcom = data.vcom; vstatic = data.vstatic; vbody = data.vbody;
-
+stf_ang_mom_mj = data.stf_ang_mom_mj; stf_ang_mom_pin = data.stf_ang_mom_pin;
+x_ssp_curr_L = data.x_ssp_curr_L; L_ssp_curr_L = data.L_ssp_curr_L; x_ssp_impact_L = data.x_ssp_impact_L; L_ssp_impact_L = data.L_ssp_impact_L; x_ssp_impact_ref_L = data.x_ssp_impact_ref_L; L_ssp_impact_ref_L = data.L_ssp_impact_ref_L;
 %% Plot Joints
 
 fh1 = figure();
@@ -108,6 +109,24 @@ hold off
 legend('v com', 'predicted v com impact', 'v com impact ref')
 sgtitle('HLIP Approximation')
 
+%% Plot LLIP Predictions
+figure();
+subplot(2, 1, 1)
+hold on
+plot(t, x_ssp_curr_L)
+plot(t, x_ssp_impact_L)
+plot(t, x_ssp_impact_ref_L)
+hold off;
+legend('x com', 'predicted x com impact', 'x com impact ref')
+subplot(2, 1, 2)
+hold on
+plot(t, L_ssp_curr_L)
+plot(t, L_ssp_impact_L)
+plot(t, L_ssp_impact_ref_L)
+hold off
+legend('L com', 'predicted L com impact', 'L com impact ref')
+sgtitle('LLIP Approximation')
+
 %% Plot Outputs
 figure();
 subplot(3, 1, 1)
@@ -183,3 +202,12 @@ plot(t, vbody)
 hold off;
 legend("CoM", "Static", "Body")
 title("CoM Velocity Approximations")
+
+%% Stance Foot Angular Mommentum
+figure();
+hold on
+plot(t, stf_ang_mom_mj)
+plot(t, stf_ang_mom_pin)
+hold off
+legend("MJC", "PIN")
+title("Angular Momentum about Stance Foot")

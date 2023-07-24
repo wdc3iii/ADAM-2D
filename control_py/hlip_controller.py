@@ -7,7 +7,7 @@ from plot.logger import Logger
 class HLIPController:
 
     def __init__(
-            self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, grav_comp:bool=True, v_ref:float=0, pitch_ref:float=0.025,
+            self, T_SSP:float, z_ref:float, urdf_path:str, mesh_path:str, mass:float, grav_comp:bool=True, angMomState:bool=False, v_ref:float=0, pitch_ref:float=0.025,
             v_max_change:float=0.1, z_max_change:float=0.02, x_bez:np.ndarray=np.array([0,0,1,1,1]),
             vswf_tof:float=0.05, vswf_imp:float=-0.05, zswf_max:float=0.075, pswf_max:float=0.7,
             use_static_com:bool=False, T_DSP:float=0, log_path:str="plot/log_ctrl.csv"
@@ -17,6 +17,8 @@ class HLIPController:
         self.T_SSP_goal = T_SSP
         self.g = 9.81
         self.gravity_comp = grav_comp
+        self.mass = mass
+        self.angMomState = angMomState
 
         self.z_ref_goal = z_ref
         self.z_ref = z_ref
@@ -26,7 +28,7 @@ class HLIPController:
         self.pitch_ref = pitch_ref
 
         self.K_deadbeat = np.array([1, self.T_DSP + 1 / (self.lmbd * np.tanh(self.T_SSP * self.lmbd))])
-
+        self.K_L = np.array([0.9999, 0.0305])
         self.cur_stf = True
         self.cur_swf = not self.cur_stf
 
@@ -55,20 +57,26 @@ class HLIPController:
 
         self.logger = Logger(
             log_path,
-            "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,ypitch,yswfx,yswfz,ycomx,ycomz,ypitchref,yswfxref,yswfzref,ycomxref,ycomzref,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref,tau1,tau2,tau3,tau4,vcom,vstatic,vbody\n"
+            "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,ypitch,yswfx,yswfz,ycomx,ycomz,ypitchref,yswfxref,yswfzref,ycomxref,ycomzref,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref,tau1,tau2,tau3,tau4,vcom,vstatic,vbody,impact,stf_ang_mom_mj,stf_ang_mom_pin,x_ssp_curr_L,L_ssp_curr_L,x_ssp_impact_L,L_ssp_impact_L,x_ssp_impact_ref_L,L_ssp_impact_ref_L\n"
         )
 
-    def calcPreImpactStateRef(self, v_ref:float) -> np.ndarray:
+    def calcPreImpactStateRef_HLIP(self, v_ref:float) -> np.ndarray:
         sigma_1 = self.lmbd / np.tanh(self.T_SSP * self.lmbd / 2)
         p_pre_ref = -v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * sigma_1)
         v_pre_ref = sigma_1 * v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * sigma_1)
         return np.array([p_pre_ref, v_pre_ref])
     
-    def calcSSPStateRef(self, x0:np.ndarray, t:float) -> np.ndarray:
+    def calcSSPStateRef_HLIP(self, x0:np.ndarray, t:float) -> np.ndarray:
         V = np.array([[1, 1], [self.lmbd, -self.lmbd]])
         S = np.array([[np.exp(self.lmbd * t), 0], [0, np.exp(-self.lmbd * t)]])
 
         return V @ S @ np.linalg.inv(V) @ x0
+    
+    def calcSSPStateRef_LLIP(self, x_L0:np.ndarray, t:float) -> np.ndarray:
+        return np.array([
+            [np.cosh(self.lmbd * t), 1 / (self.mass * self.z_ref * self.lmbd) * np.sinh(self.lmbd * t)],
+            [self.mass * self.z_ref * self.lmbd * np.sinh(self.lmbd * t), np.cosh(self.lmbd * t)]
+        ]) @ x_L0
 
 
     def getU(self) -> np.ndarray:
@@ -98,7 +106,7 @@ class HLIPController:
     def setPitchRef(self, pitch_ref):
         self.pitch_ref = pitch_ref
 
-    def gaitController(self, q:np.ndarray, q_pos_ctrl:np.ndarray, q_vel_ctrl:np.ndarray, t:float, right_cont:bool, left_cont:bool) -> tuple:
+    def gaitController(self, q:np.ndarray, q_pos_ctrl:np.ndarray, q_vel_ctrl:np.ndarray, t:float, right_cont:bool, left_cont:bool, stf_ang_mom:float) -> tuple:
         t_phase = t - self.t_phase_start
 
         t_scaled = t_phase / self.T_SSP
@@ -108,6 +116,7 @@ class HLIPController:
 
         
         if t_scaled >= 1 or (t_scaled > 0.5 and swf_height < 0.001):
+            impact = True
         # if t_scaled > 1.5 or (t_scaled > 0.5 and ((self.cur_stf and right_cont) or (not self.cur_stf and left_cont))):
             # print("impact")
             # print(f"SWF Z at 'contact' {swf_height}, t_scaled at 'contact' {t_scaled}")
@@ -137,6 +146,11 @@ class HLIPController:
             self.calcLambda()
             self.calcSigma1()
             self.calcSigma2()
+        else:
+            impact = False
+
+
+        ang_mom = self.adamKin.getSTFAngularMomentum(q_pos_ctrl, q_vel_ctrl, self.cur_stf)
 
         # X-Dynamics
         self.u_nom = self.v_ref * (self.T_SSP + self.T_DSP)
@@ -145,25 +159,34 @@ class HLIPController:
             self.sigma1 * self.v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * self.sigma1)
         ])
 
+        x_ssp_impact_ref_L = np.array([
+            self.v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * self.sigma1),
+            (self.sigma1 * self.v_ref * (self.T_SSP + self.T_DSP) / (2 + self.T_DSP * self.sigma1)) * self.mass * self.z_ref
+        ])
+
 
         v_com = self.adamKin.v_CoM(q_pos_ctrl, q_vel_ctrl)
         v_static = self.adamKin.v_StaticCom(q_pos_ctrl, q_vel_ctrl)
 
-        v_com = self.adamKin.getVCom(q_pos_ctrl, q_vel_ctrl)
+        v_com_use = self.adamKin.getVCom(q_pos_ctrl, q_vel_ctrl)
         x_ssp_curr = np.array([
             y_out[Kinematics.OUT_ID["COM_POS_X"]],
-            v_com[0]
+            v_com_use[0]
         ])
 
-        # Way this is done on other one
-        # x_ssp_curr = np.array([
-        #     y_out[Kinematics.OUT_ID["COM_POS_X"]],
-        #     q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]]
-        # ])
+        x_ssp_curr_L = np.array([
+            y_out[Kinematics.OUT_ID["COM_POS_X"]],
+            ang_mom
+        ])
 
-        x_ssp_impact = self.calcSSPStateRef(x_ssp_curr, self.T_SSP - t_phase)
+        x_ssp_impact = self.calcSSPStateRef_HLIP(x_ssp_curr, self.T_SSP - t_phase)
+        x_ssp_impact_L = self.calcSSPStateRef_LLIP(x_ssp_curr_L, self.T_SSP - t_phase)
 
-        self.u = self.u_nom + self.K_deadbeat @ (x_ssp_impact - x_ssp_impact_ref)
+        # self.u = self.u_nom + self.K @ (x_ssp_impact - x_ssp_impact_ref)
+        if self.angMomState:
+            self.u = self.u_nom + self.K_L @ (x_ssp_impact_L - x_ssp_impact_ref_L)
+        else:
+            self.u = self.u_nom + self.K_deadbeat @ (x_ssp_impact - x_ssp_impact_ref)
 
         if self.u > 0.5:
             print(f"Large Step {self.u} Requested")
@@ -202,7 +225,8 @@ class HLIPController:
 
         self.logger.write(np.hstack((
             t, t_phase, t_scaled, q_pos_ctrl, q_vel_ctrl, q, self.v_ref_goal, self.v_ref, self.z_ref_goal, self.z_ref, 
-            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, y_out_ref, q_gen_ref, q_ff_ref, v_com[0], v_static[0], q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]]
+            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, y_out_ref, q_gen_ref, q_ff_ref, v_com[0], v_static[0], q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]],
+            impact, stf_ang_mom, ang_mom, x_ssp_curr_L, x_ssp_impact_L, x_ssp_impact_ref_L
         )))
 
         return q_ref, qd_ref, q_ff_ref

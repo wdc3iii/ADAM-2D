@@ -41,6 +41,7 @@ class MujocoInterface:
         self.mj_model = mj.MjModel.from_xml_path(xml_path)
         self.mj_data = mj.MjData(self.mj_model)
         mj.mj_forward(self.mj_model, self.mj_data)
+        self.mass = mj.mj_getTotalmass(self.mj_model)
 
         # Create and initialize viewer object
         if self.vis_enabled:
@@ -81,10 +82,21 @@ class MujocoInterface:
     def getCoMPosition(self) -> np.ndarray:
         # return (self.mj_data.subtree_com, self.mj_data.subtree_com[0, 0:3:2])
         return self.mj_data.subtree_com[0, 0:3:2]
+    
+    def getCoMAngularMomentum(self):
+        mj.mj_subtreeVel(self.mj_model, self.mj_data)
+        return self.mj_data.subtree_angmom[0, 1]
+    
+    def getSTFAngularMomentum(self):
+        stf_pos = self.getFootPos()
+        com_pos = self.getCoMPosition()
+        r_stf_com = com_pos - stf_pos[self.leftContact]
+        L_com = self.getCoMVelocity() * self.mass
+        return self.getCoMAngularMomentum() + L_com[0] * r_stf_com[1] - L_com[1] * r_stf_com[0]
 
     def getCoMVelocity(self) -> np.ndarray:
         mj.mj_subtreeVel(self.mj_model, self.mj_data)
-        return (self.mj_data.subtree_linvel, self.mj_data.subtree_linvel[0, 0:3:2])
+        return self.mj_data.subtree_linvel[0, 0:3:2]
 
     def getJointPosition(self) -> np.ndarray:
         return self.mj_data.qpos[3:]

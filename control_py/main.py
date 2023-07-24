@@ -5,10 +5,10 @@ from kinematics_py.adam_kinematics import Kinematics
 from control_py.hlip_controller import HLIPController
 from simulation_py.mujoco_interface import MujocoInterface
 
-urdf_path = "rsc/models/adam2d_lightlimbs.urdf"
-xml_path = "rsc/models/adam2d_lightlimbs.xml"
-# urdf_path = "rsc/models/adam2d.urdf"
-# xml_path = "rsc/models/adam2d.xml"
+# urdf_path = "rsc/models/adam2d_lightlimbs.urdf"
+# xml_path = "rsc/models/adam2d_lightlimbs.xml"
+urdf_path = "rsc/models/adam2d.urdf"
+xml_path = "rsc/models/adam2d.xml"
 mesh_path = "rsc/models/"
 log_path = "plot/log_main.csv"
 
@@ -18,6 +18,7 @@ def main():
 
     use_static_com = config["use_static_com"]
     gravity_comp = config["gravity_comp"]
+    useAngMomState = config["useAngMomState"]
     pitch_ref = config["pitch_ref"]
 
     t_ref_list = config["ref_times"]
@@ -30,6 +31,8 @@ def main():
     adamKin = Kinematics(urdf_path, mesh_path)
     mjInt = MujocoInterface(xml_path)
 
+    print(mjInt.mass)
+
     q_pos_ref = adamKin.getZeroPos()
     q_pos_ref[Kinematics.GEN_POS_ID["P_LHP"]] = -0.4
     q_pos_ref[Kinematics.GEN_POS_ID["P_RHP"]] = -0.4
@@ -37,8 +40,8 @@ def main():
     q_pos_ref[Kinematics.GEN_POS_ID["P_RKP"]] = 0.8
 
     
-    controller = HLIPController(T_SSP, z_ref, urdf_path, mesh_path, v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com, grav_comp=gravity_comp)
-    x_pre_ref = controller.calcPreImpactStateRef(v_ref)
+    controller = HLIPController(T_SSP, z_ref, urdf_path, mesh_path, mjInt.mass, angMomState=useAngMomState, v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com, grav_comp=gravity_comp)
+    x_pre_ref = controller.calcPreImpactStateRef_HLIP(v_ref)
 
     y_out_ref = np.zeros((Kinematics.N_OUTPUTS))
     y_out_ref[Kinematics.OUT_ID["PITCH"]] = pitch_ref
@@ -80,7 +83,8 @@ def main():
 
             qpos = mjInt.getGenPosition()
             qvel = mjInt.getGenVelocity()
-            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(qpos, qpos, qvel, t, mjInt.rightContact, mjInt.leftContact)
+            stfAngMom = mjInt.getSTFAngularMomentum()
+            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(qpos, qpos, qvel, t, mjInt.rightContact, mjInt.leftContact, stfAngMom)
 
             mjInt.jointPosCmd(q_pos_ref)
             mjInt.jointVelCmd(q_vel_ref)

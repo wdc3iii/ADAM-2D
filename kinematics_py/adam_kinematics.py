@@ -125,6 +125,16 @@ class Kinematics:
         if self.use_static_com:
             return self.v_StaticCom(q, qd)
         return self.v_CoM(q, qd)
+    
+    def getComMomentum(self, q, qd) -> np.ndarray:
+        return pin.computeCentroidalMomentum(self.pin_model, self.pin_data, q, qd)
+    
+    def getSTFAngularMomentum(self, q, qd, stf) -> np.ndarray:
+        comMom = self.getComMomentum(q, qd)
+        L_com = comMom.linear[0:3:2]
+        angMomCom = comMom.angular[1]
+        y_out = self.calcOutputs(q, stf)
+        return angMomCom + L_com[0] * y_out[Kinematics.OUT_ID["COM_POS_Z"]] - L_com[1] * y_out[Kinematics.OUT_ID["COM_POS_X"]]
 
     def solveIK(self, q: np.ndarray, y_des: np.ndarray, stanceFoot: bool) -> tuple:
         if stanceFoot:

@@ -8,11 +8,12 @@ swf_pos_y: -0.08225
 
 ref_times: [0, 3, 10, 15]
 v_ref: [0, 0.1, 0.2, 0.3]
-# z_ref: [0.6, 0.6, 0.6, 0.6]
-z_ref: [0.7, 0.7, 0.7, 0.7]
+z_ref: [0.6, 0.6, 0.6, 0.6]
+# z_ref: [0.7, 0.7, 0.7, 0.7]
 # ref_times: [3]
 # v_ref: [0.5]
 # z_ref: [0.6]
 
 use_static_com: false
 gravity_comp: true
+useAngMomState: true
