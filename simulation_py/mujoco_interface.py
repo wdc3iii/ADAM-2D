@@ -26,7 +26,7 @@ class MujocoInterface:
         
         def setActive(self, active):
             self.active = active
-            if self.active:
+            if not self.active:
                 self.force = np.zeros((3,))
                 self.torque = np.zeros((3,))
     
@@ -113,6 +113,19 @@ class MujocoInterface:
     
     def getGenVelocity(self) -> np.ndarray:
         return self.mj_data.qvel
+    
+    def getGenAccel(self) -> np.ndarray:
+        return self.mj_data.qacc
+    
+    def getDynamics(self):
+        mj.mj_fwdPosition(self.mj_model, self.mj_data)
+        M = np.zeros((7,7))
+        mj.mj_fullM(self.mj_model, M, self.mj_data.qM)
+        mj.mj_fwdVelocity(self.mj_model, self.mj_data)
+        H = self.mj_data.qfrc_bias
+        Jh = self.mj_data.efc_J
+        F = self.mj_data.efc_force
+        return M, H, Jh, F
 
     # def setState(self, pos_base: np.ndarray, pos_joints: np.ndarray, vel_base: np.ndarray, vel_joints: np.ndarray) -> None:
     #     self.setState(np.hstack(pos_base, pos_joints), np.hstack(vel_base, vel_joints))
@@ -130,7 +143,7 @@ class MujocoInterface:
         return (self.mj_data.geom_xpos[12, ::2], self.mj_data.geom_xpos[7, ::2])
 
     def getContactForces(self):
-        pass
+        return list(self.contact_map.values())
 
     def step(self) -> None:
         mj.mj_step(self.mj_model, self.mj_data)
@@ -164,8 +177,8 @@ class MujocoInterface:
                     R = self.mj_data.contact[ii].frame.reshape((3, 3))
 
                     contact_data.active = True
-                    contact_data.force = R @ contact_force_contframe
-                    contact_data.torque = R @ contact_torque_contframe
+                    contact_data.force += R @ contact_force_contframe
+                    contact_data.torque += R @ contact_torque_contframe
 
                     # print(contact_data.force, contact_data.torque)
 
@@ -174,7 +187,7 @@ class MujocoInterface:
                     elif contact_data.id_parent == 12 or contact_data.id_child == 12:
                         self.rightContact = True
                     
-                    break
+                    
 
 
 

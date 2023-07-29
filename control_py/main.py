@@ -1,14 +1,11 @@
 import yaml
 import numpy as np
+import time
 from plot.logger import Logger
 from kinematics_py.adam_kinematics import Kinematics
 from control_py.hlip_controller import HLIPController
 from simulation_py.mujoco_interface import MujocoInterface
 
-# urdf_path = "rsc/models/adam2d_lightlimbs.urdf"
-# xml_path = "rsc/models/adam2d_lightlimbs.xml"
-urdf_path = "rsc/models/adam2d.urdf"
-xml_path = "rsc/models/adam2d.xml"
 mesh_path = "rsc/models/"
 log_path = "plot/log_main.csv"
 
@@ -18,20 +15,29 @@ def main():
 
     use_static_com = config["use_static_com"]
     gravity_comp = config["gravity_comp"]
-    useAngMomState = config["useAngMomState"]
+    useAngMomState = config["use_ang_mom_state"]
+    use_task_space_ctrl = config["use_task_space_ctrl"]
     pitch_ref = config["pitch_ref"]
+
+    if use_task_space_ctrl:
+        urdf_path = "rsc/models/adam2d_tsc.urdf"
+        xml_path = "rsc/models/adam2d_tsc.xml"
+    elif config["use_light_limbs"]:
+        urdf_path = "rsc/models/adam2d_lightlimbs.urdf"
+        xml_path = "rsc/models/adam2d_lightlimbs.xml"
+    else:
+        urdf_path = "rsc/models/adam2d.urdf"
+        xml_path = "rsc/models/adam2d.xml"
 
     t_ref_list = config["ref_times"]
     z_ref_list = config["z_ref"]
     v_ref_list = config["v_ref"]
     T_SSP = config["T_SSP"]
-    z_ref = 0.6
+    z_ref = z_ref_list[0]
     v_ref = 0
 
     adamKin = Kinematics(urdf_path, mesh_path)
     mjInt = MujocoInterface(xml_path)
-
-    print(mjInt.mass)
 
     q_pos_ref = adamKin.getZeroPos()
     q_pos_ref[Kinematics.GEN_POS_ID["P_LHP"]] = -0.4
@@ -40,7 +46,11 @@ def main():
     q_pos_ref[Kinematics.GEN_POS_ID["P_RKP"]] = 0.8
 
     
-    controller = HLIPController(T_SSP, z_ref, urdf_path, mesh_path, mjInt.mass, angMomState=useAngMomState, v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com, grav_comp=gravity_comp)
+    controller = HLIPController(
+        T_SSP, z_ref, urdf_path, mesh_path, mjInt.mass, angMomState=useAngMomState,
+        v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com, grav_comp=gravity_comp,
+        use_task_space_ctrl=use_task_space_ctrl
+    )
     x_pre_ref = controller.calcPreImpactStateRef_HLIP(v_ref)
 
     y_out_ref = np.zeros((Kinematics.N_OUTPUTS))
@@ -52,17 +62,15 @@ def main():
 
     q_pos_ref, _ = adamKin.solveIK(q_pos_ref, y_out_ref, True)
 
-    # q_pos_ref[Kinematics.GEN_POS_ID["P_Z"]] += 0.71 - z_ref
     q_vel_ref = np.zeros((Kinematics.N_VEL_STATES,))
 
     mjInt.setState(q_pos_ref, q_vel_ref)
     mjInt.forward()
     ft_pos = mjInt.getFootPos()
-    q_pos_ref[Kinematics.GEN_POS_ID['P_Z']] -= ft_pos[0][1] + 0.001
+    q_pos_ref[Kinematics.GEN_POS_ID['P_Z']] -= ft_pos[0][1] - 0.01
     mjInt.setState(q_pos_ref, q_vel_ref)
 
-    logger = Logger(log_path, "t,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,q1ref,q2ref,q3ref,q4ref,q1dotref,q2dotref,q3dotref,q4dotref,tau1,tau2,tau3,tau4\n")
-
+    logger = Logger(log_path, "t,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xddot,zddot,pitchddot,q1ddot,q2ddot,q3ddot,q4ddot,q1ref,q2ref,q3ref,q4ref,q1dotref,q2dotref,q3dotref,q4dotref,tau1,tau2,tau3,tau4,m11,m12,m13,m14,m15,m16,m17,m21,m22,m23,m24,m25,m26,m27,m31,m32,m33,m34,m35,m36,m37,m41,m42,m43,m44,m45,m46,m47,m51,m52,m53,m54,m55,m56,m57,m61,m62,m63,m64,m65,m66,m67,m71,m72,m73,m74,m75,m76,m77,h1,h2,h3,h4,h5,h6,h7,F00,F01,F02,T00,T01,T02,F10,F11,F12,T10,T11,T12\n")
 
     ref_ind = 0
     while mjInt.viewerActive():
@@ -71,6 +79,11 @@ def main():
 
         while mjInt.time() - t_vis <= 1 / 60:
             t = mjInt.time()
+            
+            # mjInt.updateScene()
+            # time.sleep(0.1)
+            # print(t)
+            
             mjInt.getContact()
 
             if ref_ind < len(t_ref_list) and t >= t_ref_list[ref_ind]:
@@ -82,16 +95,19 @@ def main():
                 controller.setZ_ref(z_ref)
 
             qpos = mjInt.getGenPosition()
-            qvel = mjInt.getGenVelocity()
+            qvel = mjInt.getGenVelocity()   
+            qacc = mjInt.getGenAccel()
+            M_mjc, H_mjc, Jh_mjc, F_mjc = mjInt.getDynamics()
             stfAngMom = mjInt.getSTFAngularMomentum()
             q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(qpos, qpos, qvel, t, mjInt.rightContact, mjInt.leftContact, stfAngMom)
 
             mjInt.jointPosCmd(q_pos_ref)
             mjInt.jointVelCmd(q_vel_ref)
             mjInt.jointTorCmd(q_ff_ref)
+            contacts = mjInt.getContactForces()
 
             log_data = np.hstack((
-                t, qpos, qvel, q_pos_ref, q_vel_ref, q_ff_ref
+                t, qpos, qvel, qacc, q_pos_ref, q_vel_ref, q_ff_ref, M_mjc.reshape((-1,)), H_mjc, contacts[0].force, contacts[0].torque, contacts[1].force, contacts[1].torque
             ))
             logger.write(log_data)
 

@@ -51,4 +51,6 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     plt.figure()
     plt.plot(t, [p_swf_pos_z.evalPoly(t_phase, 0) for t_phase in t])
+    plt.plot(t, [p_swf_pos_z.evalPoly(t_phase, 1) for t_phase in t])
+    plt.plot(t, [p_swf_pos_z.evalPoly(t_phase, 2) for t_phase in t])
     plt.show()

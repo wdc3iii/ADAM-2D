@@ -2,7 +2,6 @@ import numpy as np
 import pinocchio as pin
 
 class Kinematics:
-
     
     OUT_ID = {
         "PITCH": 0, "SWF_POS_X": 1, "SWF_POS_Z": 2,
@@ -53,17 +52,13 @@ class Kinematics:
         self.STATIC_COM_FID = self.pin_model.getFrameId("static_com")
 
         q_nom = self.getZeroPos()
-        self.updateFramePlacements(q_nom)
+        self.updateModelPose(q_nom)
 
     def calcOutputs(self, q: np.ndarray, stanceFoot: bool) -> np.ndarray:
-        self.updateFramePlacements(q)
+        self.updateModelPose(q)
         
-        if stanceFoot:
-            stf_fid = self.LEFT_FOOT_FID
-            swf_fid = self.RIGHT_FOOT_FID
-        else:
-            stf_fid = self.RIGHT_FOOT_FID
-            swf_fid = self.LEFT_FOOT_FID
+        stf_fid = self.stanceFootID(stanceFoot)
+        swf_fid = self.swingFootID(stanceFoot)
 
         if self.use_static_com:
             com_pos_world = self.pin_data.oMf[self.STATIC_COM_FID].translation
@@ -82,6 +77,63 @@ class Kinematics:
         ])
 
         return y_out
+    
+    def calcDOutputs(self, q:np.ndarray, qdot:np.ndarray, stanceFoot:bool) -> np.ndarray:
+        self.updateModelPose(q)
+
+        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
+        if self.use_static_com:
+            Jcom = pin.getFrameJacobian(self.pin_model, self.pin_data, self.STATIC_COM_FID, pin.LOCAL_WORLD_ALIGNED)[0:3:2, :]
+        else:
+            Jcom = self.getCoMJacobian(q)[0:3:2, :]
+
+        Jswf = self.getSWFJacobian(q, stanceFoot)[0:3:2, :]
+        
+        return np.hstack((
+            qdot[2],
+            Jswf @ qdot,
+            Jcom @ qdot
+        ))
+
+    def getCoMJacobian(self, q:np.ndarray) -> np.ndarray:
+        return pin.jacobianCenterOfMass(self.pin_model, self.pin_data, q, False)
+    
+    def getCoMJacobianTimeDerivative(self, q:np.ndarray, qdot:np.ndarray) -> np.ndarray:
+        pin.centerOfMass(self.pin_model, self.pin_data, q, qdot)
+        return pin.getCenterOfMassVelocityDerivatives(self.pin_model, self.pin_data)
+    
+    def getSWFJacobian(self, q:np.ndarray, stanceFoot:bool) -> np.ndarray:
+        swf_fid = self.swingFootID(stanceFoot)
+        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
+        return pin.getFrameJacobian(self.pin_model, self.pin_data, swf_fid, pin.LOCAL_WORLD_ALIGNED)
+    
+    def getSWFJacobianTimeDerivative(self, q:np.ndarray, qdot:np.ndarray, stanceFoot:bool) -> np.ndarray:
+        swf_fid = self.swingFootID(stanceFoot)
+        pin.computeJointJacobiansTimeVariation(self.pin_model, self.pin_data, q, qdot)
+        return pin.getFrameJacobianTimeVariation(self.pin_model, self.pin_data, swf_fid, pin.LOCAL_WORLD_ALIGNED)
+    
+    def getSTFJacobian(self, q:np.ndarray, stanceFoot:bool) -> np.ndarray:
+        stf_fid = self.stanceFootID(stanceFoot)
+        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
+        return pin.getFrameJacobian(self.pin_model, self.pin_data, stf_fid, pin.LOCAL_WORLD_ALIGNED)
+    
+    def getSTFJacobianTimeDerivative(self, q:np.ndarray, qdot:np.ndarray, stanceFoot:bool) -> np.ndarray:
+        stf_fid = self.stanceFootID(stanceFoot)
+        pin.computeJointJacobiansTimeVariation(self.pin_model, self.pin_data, q, qdot)
+        return pin.getFrameJacobianTimeVariation(self.pin_model, self.pin_data, stf_fid, pin.LOCAL_WORLD_ALIGNED)
+    
+    def getDynamics(self, q:np.ndarray, qdot:np.ndarray, stanceFoot:bool) -> tuple:
+        # Lagrangian Mechanics 
+        # Mddq + Cdq + G = Btau + Jh^T \lambda 
+        # Jh ddq + dJh dq = 0
+        # Jh dq = 0
+        M = pin.crba(self.pin_model, self.pin_data, q)
+        # M = m_tri + m_tri.T - np.diag(np.diag(m_tri))
+        H = pin.nonLinearEffects(self.pin_model, self.pin_data, q, qdot)
+        B = np.vstack((np.zeros((3, 4)), np.eye(4)))
+        Jh = self.getSTFJacobian(q, stanceFoot)[0:3:2, :]
+        dJh = self.getSTFJacobianTimeDerivative(q, qdot, stanceFoot)[0:3:2, :]
+        return M, H, B, Jh, dJh
 
     def calcGravityCompensation(self, q:np.ndarray, stanceFoot:bool) -> np.ndarray:
         if stanceFoot:
@@ -117,7 +169,7 @@ class Kinematics:
         return Jcom @ qd
 
     def v_StaticCom(self, q:np.ndarray, qd:np.array) -> np.ndarray:
-        self.updateFramePlacements(q)
+        self.updateModelPose(q)
         Jstatic = pin.getFrameJacobian(self.pin_model, self.pin_data, self.STATIC_COM_FID, pin.LOCAL_WORLD_ALIGNED)
         return Jstatic @ qd
 
@@ -135,6 +187,12 @@ class Kinematics:
         angMomCom = comMom.angular[1]
         y_out = self.calcOutputs(q, stf)
         return angMomCom + L_com[0] * y_out[Kinematics.OUT_ID["COM_POS_Z"]] - L_com[1] * y_out[Kinematics.OUT_ID["COM_POS_X"]]
+    
+    def stanceFootID(self, stanceFoot:bool) -> int:
+        return self.LEFT_FOOT_FID if stanceFoot else self.RIGHT_FOOT_FID
+    
+    def swingFootID(self, stanceFoot:bool) -> int:
+        return self.RIGHT_FOOT_FID if stanceFoot else self.LEFT_FOOT_FID
 
     def solveIK(self, q: np.ndarray, y_des: np.ndarray, stanceFoot: bool) -> tuple:
         if stanceFoot:
@@ -192,7 +250,7 @@ class Kinematics:
     def fk_Frame(self, frame_name: str) -> np.ndarray:
         return self.pin_data.oMf[self.pin_model.getFrameId(frame_name)].translation
 
-    def updateFramePlacements(self, q:np.ndarray) -> None:
+    def updateModelPose(self, q:np.ndarray) -> None:
         pin.forwardKinematics(self.pin_model, self.pin_data, q)
         pin.updateFramePlacements(self.pin_model, self.pin_data)
 
@@ -206,16 +264,72 @@ class Kinematics:
 
 
 if __name__ == "__main__":
+    from simulation_py.mujoco_interface import MujocoInterface
+
     adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
+    mjInt = MujocoInterface("rsc/models/adam2d.xml", vis_enabled=False)
 
-    q_zero = adamKin.getZeroPos()
+    # First, check the Forward kinematics in the zero (base) position
+    # q = np.array([-1.13989699e-03, -3.70178040e-02, 4.98557348e-02, -6.37404332e-01, 1.37197239e+00, -4.15495872e-01, 8.03258440e-01])
+    # qv = np.array([-0.01266918, 0.03132298, 0.27444285, -1.6057377, 5.6096941, -0.45891118, 0.05415881])
+
+    pitch = 1
+    q = np.array([-1.13989699e-03, 1, pitch, -6.37404332e-01, 1.37197239e+00, -4.15495872e-01, 8.03258440e-01])
+    qv = np.array([-1, 5, 4.47444285, 0, 0, 0, 0])
+
+    cp = np.cos(pitch)
+    sp = np.sin(pitch)
+    qv_body = np.hstack((qv[0] * cp - qv[1] * sp, qv[0] * sp + qv[1] * cp, qv[2:]))
+    qv_zero = np.zeros_like(qv)
+    # qzero = np.zeros_like(q)
+    # qvzero = np.zeros_like(qv)
     stanceFoot = True
-    y_pin = adamKin.calcOutputs(q_zero, stanceFoot)
+    
+    mjInt.setState(q, qv)
+    M, H, B, Jh, dJh = adamKin.getDynamics(q, qv, stanceFoot)
 
-    tau = adamKin.calcGravityCompensation(q_zero, stanceFoot)
+    M_mjc, H_mjc, Jh_mjc, F_mjc = mjInt.getDynamics()
 
-    print(tau)
+    print(f"Mpin: {M}\nMmjc: {M_mjc}")
+    print(f"Mdiff{abs(M - M_mjc)}")
+    print(f"Hpin: {H}\nHmjc: {H_mjc}")
+    print(f"Hdiff{abs(H - H_mjc)}")
+    # print(f"Jpin: {Jh}\nJmjc: {Jh_mjc}")
+    # print(f"Jdiff{abs(Jh - Jh_mjc)}")
 
+
+    M, H, B, Jh, dJh = adamKin.getDynamics(q, qv_body, stanceFoot)
+
+
+    print(f"\n\nHpin: {H}\nHmjc: {H_mjc}")
+    print(f"Hdiff{abs(H - H_mjc)}")
+
+    print("here")
+
+
+
+# if __name__ == "__main__":
+#     adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
+
+#     q_zero = adamKin.getZeroPos()
+#     stanceFoot = True
+
+#     y_pin = adamKin.calcOutputs(q_zero, stanceFoot)
+#     dy_pin = adamKin.calcDOutputs(q_zero, q_zero, stanceFoot)
+
+#     tau = adamKin.calcGravityCompensation(q_zero, stanceFoot)
+
+#     Jcom = adamKin.getCoMJacobian(q_zero)
+#     dJcom = adamKin.getCoMJacobianTimeDerivative(q_zero, q_zero)
+
+#     Jswf = adamKin.getSWFJacobian(q_zero, stanceFoot)
+#     dJswf = adamKin.getSWFJacobianTimeDerivative(q_zero, q_zero, stanceFoot)
+
+#     M, H, B, Jh, dJh = adamKin.getDynamics(q_zero, q_zero, stanceFoot)
+
+#     print(f"y: {y_pin}\ndy: {dy_pin}\ntau: {tau}\nJcom: {Jcom}\ndJcom: {dJcom}\nJswf: {Jswf}\ndJswf: {dJswf}")
+
+#     print(f"M: {M}\nH: {H}\nB: {B}\nJh: {Jh}\ndJh: {dJh}")
 
 # if __name__ == "__main__":
 #     from simulation_py.mujoco_interface import MujocoInterface
