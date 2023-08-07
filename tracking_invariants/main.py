@@ -8,9 +8,11 @@ from simulation_py.mujoco_interface import MujocoInterface
 
 mesh_path = "rsc/models/"
 log_path = "plot/log_main.csv"
+urdf_path = "rsc/models/adam2d.urdf"
+xml_path = "rsc/models/adam2d.xml"
 
 def main():
-    with open('rsc/config.yaml', 'r') as file:
+    with open('rsc/track_inv_config.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
     use_static_com = config["use_static_com"]
@@ -19,22 +21,9 @@ def main():
     use_task_space_ctrl = config["use_task_space_ctrl"]
     pitch_ref = config["pitch_ref"]
 
-    if use_task_space_ctrl:
-        urdf_path = "rsc/models/adam2d_tsc.urdf"
-        xml_path = "rsc/models/adam2d_tsc.xml"
-    elif config["use_light_limbs"]:
-        urdf_path = "rsc/models/adam2d_lightlimbs.urdf"
-        xml_path = "rsc/models/adam2d_lightlimbs.xml"
-    else:
-        urdf_path = "rsc/models/adam2d.urdf"
-        xml_path = "rsc/models/adam2d.xml"
-
-    t_ref_list = config["ref_times"]
-    z_ref_list = config["z_ref"]
-    v_ref_list = config["v_ref"]
+    z_ref = config["z_ref"]
+    v_ref = config["v_ref"]
     T_SSP = config["T_SSP"]
-    z_ref = z_ref_list[0]
-    v_ref = 0
 
     adamKin = Kinematics(urdf_path, mesh_path)
     mjInt = MujocoInterface(xml_path)
@@ -52,17 +41,23 @@ def main():
         use_task_space_ctrl=use_task_space_ctrl
     )
     x_pre_ref = controller.calcPreImpactStateRef_HLIP(v_ref)
+    u_ref = v_ref * T_SSP
 
     y_out_ref = np.zeros((Kinematics.N_OUTPUTS))
     y_out_ref[Kinematics.OUT_ID["PITCH"]] = pitch_ref
-    y_out_ref[Kinematics.OUT_ID["SWF_POS_X"]] = 2 * x_pre_ref[0]
+    y_out_ref[Kinematics.OUT_ID["SWF_POS_X"]] = u_ref
     y_out_ref[Kinematics.OUT_ID["SWF_POS_Z"]] = 0
-    y_out_ref[Kinematics.OUT_ID["COM_POS_X"]] = x_pre_ref[0] # No control authority over x position
+    y_out_ref[Kinematics.OUT_ID["COM_POS_X"]] = x_pre_ref[0]
     y_out_ref[Kinematics.OUT_ID["COM_POS_Z"]] = z_ref
 
     q_pos_ref, _ = adamKin.solveIK(q_pos_ref, y_out_ref, True)
 
-    q_vel_ref = np.zeros((Kinematics.N_VEL_STATES,))
+    yd_out_ref = np.array([
+        0, 0, controller.swf_pos_z_poly.evalPoly(T_SSP, 1), x_pre_ref[1], 0, 0, 0
+    ])
+    Jy_out_ref = np.vstack((np.array([0, 0, 1, 0, 0, 0, 0]), adamKin.getSWFJacobian(q_pos_ref, True)[0:3:2, :], adamKin.getCoMJacobian(q_pos_ref)[0:3:2, :], adamKin.getSTFJacobian(q_pos_ref, True)[0:3:2, :]))
+
+    q_vel_ref = np.linalg.inv(Jy_out_ref) @ yd_out_ref
 
     mjInt.setState(q_pos_ref, q_vel_ref)    
     mjInt.forward()
@@ -94,14 +89,6 @@ def main():
             
             mjInt.getContact()
 
-            if ref_ind < len(t_ref_list) and t >= t_ref_list[ref_ind]:
-                v_ref = v_ref_list[ref_ind]
-                z_ref = z_ref_list[ref_ind]
-                ref_ind += 1
-                print(f"Reference Changed: v = {v_ref}, z = {z_ref}")
-                controller.setV_ref(v_ref)
-                controller.setZ_ref(z_ref)
-
             qpos = mjInt.getGenPosition()
             qvel = mjInt.getGenVelocity()   
             qacc = mjInt.getGenAccel()
@@ -109,27 +96,28 @@ def main():
             stfAngMom = mjInt.getSTFAngularMomentum()
             q_pos_ref, q_vel_ref, q_ff_ref, ddq_ref = controller.gaitController(qpos, qpos, qvel, t, mjInt.rightContact, mjInt.leftContact, stfAngMom)
 
-            # qfrc_inv = mjInt.getInverseDynamics(ddq_ref)
-
             mjInt.jointPosCmd(q_pos_ref)
             mjInt.jointVelCmd(q_vel_ref)
             mjInt.jointTorCmd(q_ff_ref)
-            # mjInt.mj_data.qfrc_applied = qfrc_inv
             contacts = mjInt.getContactForces()
-
+            if not controller.cur_stf:
+                break
             log_data = np.hstack((
                 t, qpos, qvel, qacc, q_pos_ref, q_vel_ref, q_ff_ref, M_mjc.reshape((-1,)), H_mjc, contacts[0].force, contacts[0].torque, contacts[1].force, contacts[1].torque, Jh1_mjc.reshape((-1,)), Jh2_mjc.reshape((-1,))
             ))
             logger.write(log_data)
 
-            # if t == 0.001:
-            #     print("MJC:\n", q_ff_ref, "\n", qacc, "\n", contacts[0].force , contacts[1].force, "\n", M_mjc, "\n", H_mjc, "\n", Jh_mjc)
-
+            
             mjInt.step()
 
+
         mjInt.updateScene()
+
+        if not controller.cur_stf:
+            break
     
     logger.close()
+
 
 
 if __name__ == "__main__":

@@ -73,17 +73,49 @@ M_mjc(3, 3:end, :) = Md_mjc(:, 14:18)';
 M_mjc(4, 4:end, :) = Md_mjc(:, 19:22)';
 M_mjc(5, 5:end, :) = Md_mjc(:, 23:25)';
 M_mjc(6, 6:end, :) = Md_mjc(:, 26:27)';
+M_mjc(7, 7, :) = Md_mjc(:, 28)';
 M_mjc(:, 1, :) = Md_mjc(:, 1:7)';
 M_mjc(2:end, 2, :) = Md_mjc(:, 8:13)';
 M_mjc(3:end, 3, :) = Md_mjc(:, 14:18)';
 M_mjc(4:end, 4, :) = Md_mjc(:, 19:22)';
 M_mjc(5:end, 5, :) = Md_mjc(:, 23:25)';
 M_mjc(6:end, 6, :) = Md_mjc(:, 26:27)';
-ddx_mjc = data_MJC.xddot; ddz_mjc = data_MJC.zddot; ddp_mjc = data_MJC.pitchddot; 
+ddx_mjc = data_MJC.xddot; ddz_mjc = data_MJC.zddot; ddp_mjc = data_MJC.pitchddot;
 ddq1_mjc = data_MJC.q1ddot;ddq2_mjc = data_MJC.q2ddot;ddq3_mjc = data_MJC.q3ddot;ddq4_mjc = data_MJC.q4ddot;
 
 F1x = data_MJC.F00; F1z = data_MJC.F02;
 F2x = data_MJC.F10; F2z = data_MJC.F12;
+
+J_mjc1 = zeros(2, 7, size(F1x, 1));
+J_mjc1(1, 1, :) = data_MJC.J1h11;
+J_mjc1(1, 2, :) = data_MJC.J1h12;
+J_mjc1(1, 3, :) = data_MJC.J1h13;
+J_mjc1(1, 4, :) = data_MJC.J1h14;
+J_mjc1(1, 5, :) = data_MJC.J1h15;
+J_mjc1(1, 6, :) = data_MJC.J1h16;
+J_mjc1(1, 7, :) = data_MJC.J1h17;
+J_mjc1(2, 1, :) = data_MJC.J1h21;
+J_mjc1(2, 2, :) = data_MJC.J1h22;
+J_mjc1(2, 3, :) = data_MJC.J1h23;
+J_mjc1(2, 4, :) = data_MJC.J1h24;
+J_mjc1(2, 5, :) = data_MJC.J1h25;
+J_mjc1(2, 6, :) = data_MJC.J1h26;
+J_mjc1(2, 7, :) = data_MJC.J1h27;
+J_mjc2 = zeros(2, 7, size(F1x, 1));
+J_mjc2(1, 1, :) = data_MJC.J2h11;
+J_mjc2(1, 2, :) = data_MJC.J2h12;
+J_mjc2(1, 3, :) = data_MJC.J2h13;
+J_mjc2(1, 4, :) = data_MJC.J2h14;
+J_mjc2(1, 5, :) = data_MJC.J2h15;
+J_mjc2(1, 6, :) = data_MJC.J2h16;
+J_mjc2(1, 7, :) = data_MJC.J2h17;
+J_mjc2(2, 1, :) = data_MJC.J2h21;
+J_mjc2(2, 2, :) = data_MJC.J2h22;
+J_mjc2(2, 3, :) = data_MJC.J2h23;
+J_mjc2(2, 4, :) = data_MJC.J2h24;
+J_mjc2(2, 5, :) = data_MJC.J2h25;
+J_mjc2(2, 6, :) = data_MJC.J2h26;
+J_mjc2(2, 7, :) = data_MJC.J2h27;
 
 %% Plot Joints
 fh1 = figure();
@@ -188,14 +220,14 @@ for ii = 1:size(step_inds)
     xt = [xt; y];
     tt = [tt; t1 + t(step_inds(ii) + 1)];
 end
-subplot(2, 1, 1)
-hold on
-plot(tt, xt(:, 1))
-hold off
-subplot(2, 1, 2)
-hold on
-plot(tt, xt(:, 2))
-hold off
+% subplot(2, 1, 1)
+% hold on
+% plot(tt, xt(:, 1))
+% hold off
+% subplot(2, 1, 2)
+% hold on
+% plot(tt, xt(:, 2))
+% hold off
 
 %% Plot LLIP Predictions
 figure();
@@ -241,6 +273,31 @@ plot(t, z_com)
 hold off
 legend("x com ref", "z com ref","x com", "z com")
 sgtitle('Output References')
+
+%% Plot Swing Foot Trajectory
+figure();
+hold on
+plot(x_swf_ref, z_swf_ref)
+plot(x_swf, z_swf)
+hold off
+x_swf_ref_cpy = x_swf_ref;
+x_swf_cpy = x_swf;
+title("Swing Foot Trajectory")
+
+figure();
+hold on
+dz = 0;
+step_inds = find(abs(diff(x_swf)) > 0.01);
+for ii = 2:length(step_inds)
+    ii0 = step_inds(ii - 1) + 1; iiF = step_inds(ii);
+    plot(x_swf_ref(ii0:iiF), z_swf_ref(ii0:iiF) + dz)
+    plot(x_swf(ii0:iiF), z_swf(ii0:iiF) + dz)
+    plot(x_swf(ii0), z_swf(ii0) + dz, '*')
+    dz = dz - 0.11;
+end
+hold off
+title("Swing Foot Trajectory (spaced out)")
+
 
 %% Plot Tracking Accuracy
 figure();
@@ -313,6 +370,7 @@ plot(t, tau3_tsc)
 plot(t, tau4_tsc)
 hold off
 legend("Tau1 gc", "Tau2 gc", "Tau3 gc", "Tau4 gc", "Tau1 tsc", "Tau2 tsc", "Tau3 tsc", "Tau4 tsc")
+title("GC vs TSC")
 
 
 
@@ -329,6 +387,7 @@ legend("deltaEPitch", "deltaESWFX", "deltaESWFZ", "deltaECOMZ")
 subplot(2, 1, 2)
 plot(t, obj_val)
 legend("Objective Value")
+sgtitle("TSC Objective Values")
 
 %% ddq
 
@@ -358,6 +417,8 @@ plot(t(1:Tt), ddq4_mjc(1:Tt), "--")
 hold off
 legend("ddq1", "ddq2", "ddq3", "ddq4", "ddq1mjc", "ddq2mjc", "ddq3mjc", "ddq4mjc")
 
+sgtitle("ddq MJC vs PIN")
+
 %% Ground Reaction Force
 figure();
 subplot(2, 1, 1)
@@ -376,6 +437,7 @@ plot(t(1:Tt), -F2z(1:Tt))
 hold off
 legend("TSC", "F1mjc", "F2mjc")
 ylabel("Z GRF")
+sgtitle("Ground Reaction Forces")
 
 %% H
 figure()
@@ -387,6 +449,21 @@ for ii = 1:7
     hold off
     fprintf("Hdiff: %e\n", max(abs(H(1:Tt, ii)-H_mjc(1:Tt, ii))))
 end
+
+%% J
+figure()
+for ii = 1:7
+    for jj = 1:2
+        subplot(2, 7, ii + (jj - 1) * 7)
+        hold on
+        plot(t(1:Tt), squeeze(J(jj, ii, 1:Tt)))
+        plot(t(1:Tt), squeeze(J_mjc1(jj, ii, 1:Tt)))
+        plot(t(1:Tt), squeeze(J_mjc2(jj, ii, 1:Tt)))
+        hold off
+        %         fprintf("Hdiff: %e\n", max(abs(H(1:Tt, ii)-H_mjc(1:Tt, ii))))
+    end
+end
+legend("Pinocchio", "MJC foot1", "MJC foot2")
 
 %% M
 figure()
@@ -401,7 +478,7 @@ for r = 1:7
     end
 end
 
-%% Check Dynamics
+%% Check Dynamics (Pinocchio)
 B = [zeros(3, 4); eye(4)];
 delta_ddq = zeros(size(t));
 for ii = 1:size(M, 3)
@@ -419,3 +496,77 @@ for ii = 1:size(M, 3)
 end
 figure()
 plot(t, delta_ddq)
+
+
+%% Check Dynamics (MJC)
+B = [zeros(3, 4); eye(4)];
+delta_ddq_p = zeros(size(t));
+delta_ddq = zeros(size(t));
+all_ddq_p = zeros(7, size(M, 3) - 1);
+all_ddq_fd_p = zeros(7, size(M, 3) - 1);
+all_ddq = zeros(7, size(M, 3) - 1);
+all_ddq_fd = zeros(7, size(M, 3) - 1);
+
+for ii = 2:Tt
+    Mt_p = squeeze(M(:, :, ii));
+    ddq_p = [ddx(ii); ddz(ii); ddtheta(ii); ddq1(ii); ddq2(ii); ddq3(ii); ddq4(ii)];
+    Ht_p = H(ii, :)';
+    Jt_p = J(:, :, ii);
+    Ft_p = [grfx(ii); grfz(ii)];
+    taut_p = [tau1_tsc(ii); tau2_tsc(ii); tau3_tsc(ii); tau4_tsc(ii)];
+    ddq_fd_p = Mt_p \ (-Ht_p + B * taut_p + Jt_p' * Ft_p);
+    delta_ddq_p(ii) = norm(ddq_p - ddq_fd_p);
+    if delta_ddq_p(ii) > 1
+        disp("uhoh pin")
+    end
+
+    all_ddq_p(:, ii - 1) = ddq_p;
+    all_ddq_fd_p(:, ii - 1) = ddq_fd_p;
+
+
+
+    Mt = squeeze(M_mjc(:, :, ii));
+    ddq = [ddx_mjc(ii); ddz_mjc(ii); ddp_mjc(ii); ddq1_mjc(ii); ddq2_mjc(ii); ddq3_mjc(ii); ddq4_mjc(ii)];
+    Ht = H_mjc(ii, :)';
+    Jt1 = J_mjc1(:, :, ii);
+    Ft1 = [-F1x(ii); -F1z(ii)];
+    Jt2 = J_mjc2(:, :, ii);
+    Ft2 = [-F2x(ii); -F2z(ii)];
+    if norm(Jt1 - Jt_p) < norm(Jt2 - Jt_p)
+        Jt = Jt1;
+    else
+        Jt = Jt2;
+    end
+    if norm(Ft1 - Ft_p) < norm(Ft2 - Ft_p)
+        Ft = Ft1;
+    else
+        Ft = Ft2;
+    end
+    taut = [tau1_tsc(ii); tau2_tsc(ii); tau3_tsc(ii); tau4_tsc(ii)];
+    ddq_fd = Mt \ (-Ht + B * taut + Jt' * Ft);
+    delta_ddq(ii) = norm(ddq - ddq_fd);
+    if delta_ddq(ii) > 1
+        disp("uhoh mjc")
+    end
+
+    all_ddq(:, ii - 1) = ddq;
+    all_ddq_fd(:, ii - 1) = ddq_fd;
+end
+figure()
+for ii = 1:7
+    subplot(7, 1, ii)
+    grid on
+    if ii == 3 || ii >= 6
+        s1 = 1;
+    else
+        s1 = 1;
+    end
+    hold on
+    plot(t(2:Tt), all_ddq(ii, 1:Tt-1), 'LineWidth', 2)
+    plot(t(2:Tt), s1 * all_ddq_fd(ii, 1:Tt-1))
+    plot(t(2:Tt), all_ddq_p(ii, 1:Tt-1))
+    plot(t(2:Tt), all_ddq_fd_p(ii, 1:Tt-1))
+    hold off
+end
+subplot(7, 1, 1)
+legend("ddx mjc", "ddx mjc fd", "ddx pin","ddx pin fd")

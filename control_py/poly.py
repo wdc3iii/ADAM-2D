@@ -38,15 +38,15 @@ class Poly:
         return res
 
 if __name__ == "__main__":
-    x_swf_pos_z = np.array([0, 0.4, 0.7 * 0.4, 0, 0.4])
-    y_swf_pos_z = np.array([0, 0, 0.1, 0.05, -0.05])
+    x_swf_pos_z = np.array([0, 0.3, 0.7 * 0.3, 0, 0.4])
+    y_swf_pos_z = np.array([0, 0, 0.07, 0.01, -0.05])
     d_swf_pos_z = np.array([0, 0, 0, 1, 1])
     # x_swf_pos_z = np.array([0, 0.4, 0.7 * 0.4, 0, 0.4, 0.7 * 0.4])
     # y_swf_pos_z = np.array([0, 0, 0.1, 0.05, -0.05, 0])
     # d_swf_pos_z = np.array([0, 0, 0, 1, 1, 1])
     p_swf_pos_z = Poly(x_swf_pos_z, y_swf_pos_z, d_swf_pos_z)
 
-    t = np.linspace(0, 0.4, 1000)
+    t = np.linspace(0, 0.3, 1000)
 
     import matplotlib.pyplot as plt
     plt.figure()

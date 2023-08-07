@@ -42,8 +42,10 @@ class HLIPController:
         self.Kp = 100 * np.eye(4)
         self.Kd = 2 * np.sqrt(self.Kp) * np.eye(4)
 
-        self.cur_stf = True
+        self.cur_stf = False
         self.cur_swf = not self.cur_stf
+
+        self.swf_x_start = 0
 
         self.t_phase_start = -2 * self.T_SSP
 
@@ -67,6 +69,8 @@ class HLIPController:
         y_swf_pos_z = np.array([0, self.pos_swf_imp, self.z_swf_max, self.v_swf_tof, self.v_swf_imp])
         d_swf_pos_z = np.array([0, 0, 0, 1, 1])
         self.swf_pos_z_poly = Poly(x_swf_pos_z, y_swf_pos_z, d_swf_pos_z)
+        z_bez = np.array([0, 0.25 * self.z_swf_max, 0.5 * self.z_swf_max, self.z_swf_max, 0])
+        self.swf_pos_z_bez = Bezier(z_bez)
 
         self.logger = Logger(
             log_path,
@@ -145,6 +149,7 @@ class HLIPController:
 
             # Recompute outputs with relabeled stance/swing feet
             y_out = self.adamKin.calcOutputs(q_pos_ctrl, self.cur_stf)
+            self.swf_x_start = y_out[Kinematics.OUT_ID["SWF_POS_X"]]
 
             delta_v_ref = self.v_ref_goal - self.v_ref
             if abs(delta_v_ref) > self.vel_max_change:
@@ -207,15 +212,19 @@ class HLIPController:
             print(f"Large Step {self.u} Requested")
 
         ## Debugging!!!!!!!!!!!!!!!!!!
-        self.u = -0.04
+        # self.u = -0.04
 
         swf_pos_x_curr = y_out[Kinematics.OUT_ID["SWF_POS_X"]]
         bht = self.swf_x_bez.eval(t_scaled)
 
-        swf_pos_x_ref = swf_pos_x_curr * (1 - bht) + self.u * bht
+        # Old Method, relative to current swing foot position
+        # swf_pos_x_ref = swf_pos_x_curr * (1 - bht) + self.u * bht
+        # New method, relative to swing foot position at beginning of stride
+        swf_pos_x_ref = self.swf_x_start * (1 - bht) + self.u * bht
 
         # Z-pos
         swf_pos_z_ref = self.swf_pos_z_poly.evalPoly(t_phase, 0)
+        # swf_pos_z_ref = self.swf_pos_z_bez.eval(t_scaled)
 
         y_out_ref = np.zeros((Kinematics.N_OUTPUTS))
         y_out_ref[Kinematics.OUT_ID["PITCH"]] = self.pitch_ref
@@ -228,6 +237,8 @@ class HLIPController:
 
         if not sol_found:
             print('No solution found for IK', y_out_ref)
+        # if t_scaled > 0.5:
+        #     print("now")
 
         q_ref = q_gen_ref[-4:]
         # Set desired joint velocities/torques
@@ -237,35 +248,37 @@ class HLIPController:
         # Compute ya, yd, e
         ya = y_out                                          # actual output
         yd = y_out_ref                                      # desired output
-        e = np.hstack((ya[0:3] - yd[0:3], ya[4] - yd[4]))     # output error
+        e = np.hstack((ya[0:3] - yd[0:3], ya[4] - yd[4]))   # output error
         # Compute dya, dyd, de
-        dbht = self.swf_x_bez.deval(t_scaled)                                       # time derivative of swf x bezier polynomial
-        dpoly = self.swf_pos_z_poly.evalPoly(t_phase, 1)                            # time deriviative of swf z polynomial
+        dbht = self.swf_x_bez.deval(t_scaled) * self.T_SSP                                # time derivative of swf x bezier polynomial
+        dpoly = self.swf_pos_z_poly.evalPoly(t_phase, 1)                                  # time deriviative of swf z polynomial
+        # dpoly = self.swf_pos_z_bez.deval(t_scaled) * self.T_SSP                           # time deriviative of swf z polynomial
         Jcomz = self.adamKin.getCoMJacobian(q_pos_ctrl)[2, :]                                                # Jcom  center of mass jacobian
         dJcomz = self.adamKin.getCoMJacobianTimeDerivative(q_pos_ctrl, q_vel_ctrl)[2, :]                     # dot Jcom, time variation of com jacobian
-        Jswf = self.adamKin.getSWFJacobian(q_pos_ctrl, self.cur_stf)[0:3:2, :]                                  # Jswf, swing foot jacobian
+        Jswf = self.adamKin.getSWFJacobian(q_pos_ctrl, self.cur_stf)[0:3:2, :]                               # Jswf, swing foot jacobian
         Jswfx = Jswf[0, :]
         Jswfz = Jswf[1, :]
-        dJswf = self.adamKin.getSWFJacobianTimeDerivative(q_pos_ctrl, q_vel_ctrl, self.cur_stf)[0:3:2, :]       # dot Jswf, swf time variation of jacobian
+        dJswf = self.adamKin.getSWFJacobianTimeDerivative(q_pos_ctrl, q_vel_ctrl, self.cur_stf)[0:3:2, :]    # dot Jswf, swf time variation of jacobian
         dJswfx = dJswf[0, :]
         dJswfz = dJswf[1, :]
-        ddbht = self.swf_x_bez.ddeval(t_scaled)                                                                 # ddot swf x bezier curve
-        ddpoly = self.swf_pos_z_poly.evalPoly(t_phase, 2)                                                       # ddot swf z polynomial
+        ddbht = self.swf_x_bez.ddeval(t_scaled) * self.T_SSP * self.T_SSP                                  # ddot swf x bezier curve
+        ddpoly = self.swf_pos_z_poly.evalPoly(t_phase, 2)                                                  # ddot swf z polynomial
+        # ddpoly = self.swf_pos_z_bez.ddeval(t_scaled) * self.T_SSP * self.T_SSP                             # ddot swf z polynomial
 
         # Compute de
         de = np.array([
             q_vel_ctrl[2],
-            (swf_pos_x_curr - self.u) * dbht + bht * Jswfx @ q_vel_ctrl,
+            Jswfx @ q_vel_ctrl - (self.u - self.swf_x_start) * dbht,
             Jswfz @ q_vel_ctrl - dpoly,
             Jcomz @ q_vel_ctrl
         ])
         dded = -self.Kp @ e - self.Kd @ de                                                                      # Desired ddot error is ddoot e_d = -Kp e -Kd dot e
         
         # Construct cost function ( dde = R @ ddq + g )
-        R = np.vstack((np.array([0, 0, 1, 0, 0, 0, 0]), bht * Jswfx, Jswfz, Jcomz))
+        R = np.vstack((np.array([0, 0, 1, 0, 0, 0, 0]), Jswfx, Jswfz, Jcomz))
         g = np.array([
             0,
-            ddbht * (swf_pos_x_curr - self.u) + 2 * dbht * Jswfx @ q_vel_ctrl + bht * dJswfx @ q_vel_ctrl,
+            dJswfx @ q_vel_ctrl - (self.u - self.swf_x_start) * ddbht,
             dJswfz @ q_vel_ctrl - ddpoly,
             dJcomz @ q_vel_ctrl
         ])
@@ -329,6 +342,8 @@ class HLIPController:
 
         if self.use_task_space_ctrl:
             q_ff_ref = tau
+            q_ref = q_pos_ctrl[-4:]
+            qd_ref = q_vel_ctrl[-4:]
         elif self.gravity_comp:
             q_ff_ref = q_ff_ref_gravcomp
         else:
@@ -344,14 +359,22 @@ class HLIPController:
         if dyn_err > 3e-4:
             print("uhoh", dyn_err)
 
-        if t == 0.001:
-            print(tau, ddq, grf, M, H)
-        return q_ref, qd_ref, q_ff_ref
+        # if t == 0.001:
+        #     print("Pinocchio:\n", tau, "\n", ddq, "\n", grf, "\n", M, "\n", H, "\n")
+        return q_ref, qd_ref, q_ff_ref, ddq
+    
+    def reset(self):
+        self.cur_stf = False
+        self.cur_swf = not self.cur_stf
+
+        self.swf_x_start = 0
+
+        self.t_phase_start = -2 * self.T_SSP
     
     
 
 
-                # ## Solution Method 2
+        # ## Solution Method 2
         # Minv = np.linalg.inv(M)
         # Jminv = np.linalg.inv(Jh @ Minv @ Jh.T) 
         # Jmh = Jminv @ Jh @ Minv

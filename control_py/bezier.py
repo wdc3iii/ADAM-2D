@@ -112,13 +112,14 @@ class Bezier:
     
 
 if __name__ == "__main__":
-    swf_x_bez = Bezier(np.array([0, 0, 0, 1, 1]))
+    # swf_x_bez = Bezier(np.array([0, 0, 0, 1, 1]))
+    swf_x_bez = Bezier(np.array([0, 0.025, 0.05, 0.1, 0]))
     t = np.linspace(0, 1)
 
     import matplotlib.pyplot as plt
 
     plt.figure()
     plt.plot(t, [swf_x_bez.eval(tii) for tii in t])
-    plt.plot(t, [swf_x_bez.deval(tii) for tii in t])
-    plt.plot(t, [swf_x_bez.ddeval(tii) for tii in t])
+    # plt.plot(t, [swf_x_bez.deval(tii) for tii in t])
+    # plt.plot(t, [swf_x_bez.ddeval(tii) for tii in t])
     plt.show()

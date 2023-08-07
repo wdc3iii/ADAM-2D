@@ -124,8 +124,31 @@ class MujocoInterface:
         mj.mj_fwdVelocity(self.mj_model, self.mj_data)
         H = self.mj_data.qfrc_bias
         Jh = self.mj_data.efc_J
+        J1 = np.zeros((3, 7))
+        J1rot = np.zeros((3, 7))
+        mj.mj_jacGeom(self.mj_model, self.mj_data, J1, J1rot, 7)
+        J2 = np.zeros((3, 7))
+        J2rot = np.zeros((3, 7))
+        mj.mj_jacGeom(self.mj_model, self.mj_data, J2, J2rot, 12)
+
+        # J1 = np.zeros((3, 7))
+        # J1rot = np.zeros((3, 7))
+        # mj.mj_jac(self.mj_model, self.mj_data, J1, J1rot, np.array([0, 0, -0.25]), 5)
+        # J2 = np.zeros((3, 7))
+        # J2rot = np.zeros((3, 7))
+        # mj.mj_jac(self.mj_model, self.mj_data, J2, J2rot, np.array([0, 0, -0.25]), 9)
+
+
+        Jh1 = J1[0::2, :]
+        Jh2 = J2[0::2, :]
         F = self.mj_data.efc_force
-        return M, H, Jh, F
+        return M, H, Jh1, Jh2, F
+    
+    def getInverseDynamics(self, qacc:np.ndarray) -> np.ndarray:
+        self.mj_data.qacc = qacc
+        mj.mj_inverse(self.mj_model, self.mj_data)
+        return self.mj_data.qfrc_inverse
+
 
     # def setState(self, pos_base: np.ndarray, pos_joints: np.ndarray, vel_base: np.ndarray, vel_joints: np.ndarray) -> None:
     #     self.setState(np.hstack(pos_base, pos_joints), np.hstack(vel_base, vel_joints))

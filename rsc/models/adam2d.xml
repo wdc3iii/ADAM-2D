@@ -157,6 +157,8 @@
   </actuator>
 
   <contact>
+    <!-- <pair name="left_foot_to_plane" geom1="plane" margin="0.00001" geom2="left_foot" friction="1 1 0.001 0.001 0.001"/>
+    <pair name="right_foot_to_plane" geom1="plane" margin="0.00001" geom2="right_foot" friction="1 1 0.001 0.001 0.001"/> -->
     <pair name="left_foot_to_plane" geom1="plane" geom2="left_foot" friction="1 1 0.001 0.001 0.001"/>
     <pair name="right_foot_to_plane" geom1="plane" geom2="right_foot" friction="1 1 0.001 0.001 0.001"/>
   </contact>

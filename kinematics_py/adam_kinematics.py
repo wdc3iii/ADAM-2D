@@ -193,6 +193,15 @@ class Kinematics:
     
     def swingFootID(self, stanceFoot:bool) -> int:
         return self.RIGHT_FOOT_FID if stanceFoot else self.LEFT_FOOT_FID
+    
+    def getContactOffset(self, q:np.ndarray, stanceFoot:bool) -> float:
+        d1 = np.sqrt(0.01**2 + 0.02**2)
+        alpha = np.arctan(0.01 / 0.02)
+        if stanceFoot:
+            beta = abs(np.pi / 2 + q[2] + q[3] + q[4])
+        else:
+            beta = abs(np.pi / 2 + q[2] + q[5] + q[6])
+        return d1 * np.sin(beta - alpha)
 
     def solveIK(self, q: np.ndarray, y_des: np.ndarray, stanceFoot: bool) -> tuple:
         if stanceFoot:
@@ -263,50 +272,59 @@ class Kinematics:
         return q_zero
 
 
-if __name__ == "__main__":
-    from simulation_py.mujoco_interface import MujocoInterface
+# if __name__ == "__main__":
+#     from simulation_py.mujoco_interface import MujocoInterface
 
-    adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
-    mjInt = MujocoInterface("rsc/models/adam2d.xml", vis_enabled=False)
+#     adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
+#     mjInt = MujocoInterface("rsc/models/adam2d.xml", vis_enabled=False)
 
-    # First, check the Forward kinematics in the zero (base) position
-    # q = np.array([-1.13989699e-03, -3.70178040e-02, 4.98557348e-02, -6.37404332e-01, 1.37197239e+00, -4.15495872e-01, 8.03258440e-01])
-    # qv = np.array([-0.01266918, 0.03132298, 0.27444285, -1.6057377, 5.6096941, -0.45891118, 0.05415881])
+#     # First, check the Forward kinematics in the zero (base) position
+#     # q = np.array([-1.13989699e-03, -3.70178040e-02, 4.98557348e-02, -6.37404332e-01, 1.37197239e+00, -4.15495872e-01, 8.03258440e-01])
+#     # qv = np.array([-0.01266918, 0.03132298, 0.27444285, -1.6057377, 5.6096941, -0.45891118, 0.05415881])
 
-    pitch = 1
-    q = np.array([-1.13989699e-03, 1, pitch, -6.37404332e-01, 1.37197239e+00, -4.15495872e-01, 8.03258440e-01])
-    qv = np.array([-1, 5, 4.47444285, 0, 0, 0, 0])
+#     pitch = 1
+#     q = np.array([-1.13989699e-03, 1, pitch, -6.37404332e-01, 1.37197239e+00, -4.15495872e-01, 8.03258440e-01])
+#     qv = np.array([-1, 5, 4.47444285, 0, 0, 0, 0])
 
-    cp = np.cos(pitch)
-    sp = np.sin(pitch)
-    qv_body = np.hstack((qv[0] * cp - qv[1] * sp, qv[0] * sp + qv[1] * cp, qv[2:]))
-    qv_zero = np.zeros_like(qv)
-    # qzero = np.zeros_like(q)
-    # qvzero = np.zeros_like(qv)
-    stanceFoot = True
+#     cp = np.cos(pitch)
+#     sp = np.sin(pitch)
+#     qv_body = np.hstack((qv[0] * cp - qv[1] * sp, qv[0] * sp + qv[1] * cp, qv[2:]))
+#     qv_zero = np.zeros_like(qv)
+#     # qzero = np.zeros_like(q)
+#     # qvzero = np.zeros_like(qv)
+#     stanceFoot = True
     
-    mjInt.setState(q, qv)
-    M, H, B, Jh, dJh = adamKin.getDynamics(q, qv, stanceFoot)
+#     mjInt.setState(q, qv)
+#     M, H, B, Jh, dJh = adamKin.getDynamics(q, qv, stanceFoot)
 
-    M_mjc, H_mjc, Jh_mjc, F_mjc = mjInt.getDynamics()
+#     M_mjc, H_mjc, Jh_mjc, F_mjc = mjInt.getDynamics()
 
-    print(f"Mpin: {M}\nMmjc: {M_mjc}")
-    print(f"Mdiff{abs(M - M_mjc)}")
-    print(f"Hpin: {H}\nHmjc: {H_mjc}")
-    print(f"Hdiff{abs(H - H_mjc)}")
-    # print(f"Jpin: {Jh}\nJmjc: {Jh_mjc}")
-    # print(f"Jdiff{abs(Jh - Jh_mjc)}")
-
-
-    M, H, B, Jh, dJh = adamKin.getDynamics(q, qv_body, stanceFoot)
+#     print(f"Mpin: {M}\nMmjc: {M_mjc}")
+#     print(f"Mdiff{abs(M - M_mjc)}")
+#     print(f"Hpin: {H}\nHmjc: {H_mjc}")
+#     print(f"Hdiff{abs(H - H_mjc)}")
+#     # print(f"Jpin: {Jh}\nJmjc: {Jh_mjc}")
+#     # print(f"Jdiff{abs(Jh - Jh_mjc)}")
 
 
-    print(f"\n\nHpin: {H}\nHmjc: {H_mjc}")
-    print(f"Hdiff{abs(H - H_mjc)}")
-
-    print("here")
+#     M, H, B, Jh, dJh = adamKin.getDynamics(q, qv_body, stanceFoot)
 
 
+#     print(f"\n\nHpin: {H}\nHmjc: {H_mjc}")
+#     print(f"Hdiff{abs(H - H_mjc)}")
+
+#     print("here")
+
+if __name__ == "__main__":
+    adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
+
+    q_zero = adamKin.getZeroPos()
+    # q_zero[2] = 0.2
+    stanceFoot = True
+
+    coff = adamKin.getContactOffset(q_zero, stanceFoot)
+
+    print(f"coff: {coff}")
 
 # if __name__ == "__main__":
 #     adamKin = Kinematics("rsc/models/adam2d.urdf", "rsc/models/")
