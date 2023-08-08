@@ -21,7 +21,7 @@ def main():
     v_ref = config["v_ref"]
     T_SSP = config["T_SSP"]
 
-    tracking_invariant = TrackingInvariant(v_ref, z_ref, pitch_ref, T_SSP, "Extreme Points", 10, use_static_com=use_static_com, useAngMomState=useAngMomState, gravity_comp=gravity_comp, use_task_space_ctrl=use_task_space_ctrl)
+    tracking_invariant = TrackingInvariant(v_ref, z_ref, pitch_ref, T_SSP, "Ellipsoid", 10, use_static_com=use_static_com, useAngMomState=useAngMomState, gravity_comp=gravity_comp, use_task_space_ctrl=use_task_space_ctrl)
     
     while tracking_invariant.getPropInSet() < 1:
         tracking_invariant.iterateSetMap(verbose=True)
