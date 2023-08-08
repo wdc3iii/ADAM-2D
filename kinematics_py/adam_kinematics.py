@@ -88,6 +88,8 @@ class Kinematics:
             Jcom = self.getCoMJacobian(q)[0:3:2, :]
 
         Jswf = self.getSWFJacobian(q, stanceFoot)[0:3:2, :]
+        Jstf = self.getSTFJacobian(q, stanceFoot)[0:3:2, :]
+        v_stf = Jstf @ qdot
         
         return np.hstack((
             qdot[2],
@@ -254,6 +256,17 @@ class Kinematics:
         q = Kinematics.wrapAngle(q)
 
         return q, ii < self.max_iter
+
+    def solveIKVel(self, qpos, ydot, stanceFoot):
+        Jy_out_ref = np.vstack((
+            np.array([0, 0, 1, 0, 0, 0, 0]),
+            self.getSWFJacobian(qpos, stanceFoot)[0:3:2, :],
+            self.getCoMJacobian(qpos)[0:3:2, :],
+            self.getSTFJacobian(qpos, stanceFoot)[0:3:2, :]
+        ))
+
+        qvel = np.linalg.inv(Jy_out_ref) @ ydot
+        return qvel
 
 
     def fk_Frame(self, frame_name: str) -> np.ndarray:

@@ -7,7 +7,7 @@ T_SSP: 0.3
 swf_pos_y: -0.08225
 z_ref: 0.6
 
-v_ref: 0.1
+v_ref: 0.0
 
 use_static_com: false
 gravity_comp: true

@@ -107,7 +107,7 @@ def main():
             qacc = mjInt.getGenAccel()
             M_mjc, H_mjc, Jh1_mjc, Jh2_mjc, F_mjc = mjInt.getDynamics()
             stfAngMom = mjInt.getSTFAngularMomentum()
-            q_pos_ref, q_vel_ref, q_ff_ref, ddq_ref = controller.gaitController(qpos, qpos, qvel, t, mjInt.rightContact, mjInt.leftContact, stfAngMom)
+            q_pos_ref, q_vel_ref, q_ff_ref = controller.gaitController(qpos, qpos, qvel, t)
 
             # qfrc_inv = mjInt.getInverseDynamics(ddq_ref)
 
