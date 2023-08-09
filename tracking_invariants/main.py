@@ -20,8 +20,10 @@ def main():
     z_ref = config["z_ref"]
     v_ref = config["v_ref"]
     T_SSP = config["T_SSP"]
+    approxMethod = config["approxMethod"]
+    vis = config["vis"]
 
-    tracking_invariant = TrackingInvariant(v_ref, z_ref, pitch_ref, T_SSP, "Ellipsoid", 10, use_static_com=use_static_com, useAngMomState=useAngMomState, gravity_comp=gravity_comp, use_task_space_ctrl=use_task_space_ctrl)
+    tracking_invariant = TrackingInvariant(v_ref, z_ref, pitch_ref, T_SSP, approxMethod, 10, use_static_com=use_static_com, useAngMomState=useAngMomState, gravity_comp=gravity_comp, use_task_space_ctrl=use_task_space_ctrl, visualize=vis)
     
     while tracking_invariant.getPropInSet() < 1:
         tracking_invariant.iterateSetMap(verbose=True)

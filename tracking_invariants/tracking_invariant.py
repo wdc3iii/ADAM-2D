@@ -14,7 +14,7 @@ xml_path = "rsc/models/adam2d.xml"
 class TrackingInvariant:
     
     def __init__(
-            self, v_ref:float, z_ref:float, pitch_ref:float, T_SSP:float, approxMethod:str, Nsamples:int=1000, NsampleSchedule:function=None,
+            self, v_ref:float, z_ref:float, pitch_ref:float, T_SSP:float, approxMethod:str, Nsamples:int=1000, NsampleSchedule=None, visualize=False,
             approxSpace:str="Output", useAngMomState:bool=False, use_static_com:bool=False, gravity_comp:bool=True, use_task_space_ctrl:bool=False
         ):
         """Initialized a class to compute tracking invariants of the HLIP reduced order model
@@ -27,6 +27,7 @@ class TrackingInvariant:
             approxMethod (str): type of convex set to use as outer approximation of propogated samples
             Nsamples (int, optional): Number of samples to use per iteration. (Alternatively specify a schedule). Defaults to 1000.
             NsampleSchedule (function, optional): function taking an iteration number (int) to number of samples to take. Defaults to None.
+            visualize (bool, optional): whether to visualize S2S dynamics. Defaults to False.
             approxSpace (str, optional): Space to perform convex approximation in, "Output" or "State". Defaults to "Output".
             useAngMomState (bool, optional): Whether to use angular momentum as second HLIP state. Defaults to False.
             use_static_com (bool, optional): Whether to use a fixed approximation of the CoM. Defaults to False.
@@ -59,9 +60,9 @@ class TrackingInvariant:
         self.minSampleConvex = 2 * self.d                   # Use Extreme Points for first iterations, until this number of samples
 
 
-        self.adamKin = Kinematics(urdf_path, mesh_path)             # Initialize kinematics solve
-        self.mjInt = MujocoInterface(xml_path, vis_enabled=False)   # Initialize simulator
-        # self.mjInt = MujocoInterface(xml_path, vis_enabled=True)
+        self.adamKin = Kinematics(urdf_path, mesh_path)                     # Initialize kinematics solve
+        self.visualize = visualize
+        self.mjInt = MujocoInterface(xml_path, vis_enabled=self.visualize)  # Initialize simulator
 
         # Initialized closed loop HLIP controller
         self.controller = HLIPController(
@@ -220,13 +221,13 @@ class TrackingInvariant:
 
         # Sample the set
         if setMethod == "Extreme Points":
-            # Initialize return array
-            sampledPoints = np.zeros((self.Nsamples, setData.shape[1]))
             # Grab only the set data involved in the set approximation
             setData = setData[:, :14] if self.approxSpace == "State" else setData[:, 14:]
             # Sample random integer to define how many points to take convex combination of
             numPts = np.random.randint(1, min(11, setData.shape[0]) + 1, size=(self.Nsamples,))
             # For each sampled point, construct as convex combination
+            # Initialize return array
+            sampledPoints = np.zeros((self.Nsamples, setData.shape[1]))
             for ii, nPts in enumerate(numPts):
                 # Randomly sample the given number of points
                 inds = np.random.choice(range(setData.shape[0]), size=(nPts,), replace=False)
@@ -341,7 +342,7 @@ class TrackingInvariant:
         y_out_ref[Kinematics.OUT_ID["PITCH"]] = self.pitch_ref
         y_out_ref[Kinematics.OUT_ID["SWF_POS_X"]] = self.u_ref
         y_out_ref[Kinematics.OUT_ID["SWF_POS_Z"]] = 0
-        y_out_ref[Kinematics.OUT_ID["COM_POS_X"]] = self.x_pre_ref[0]
+        y_out_ref[Kinematics.OUT_ID["COM_POS_X"]] = self.x_pre_ref[0] + self.u_ref
         y_out_ref[Kinematics.OUT_ID["COM_POS_Z"]] = self.z_ref
 
         # Compute position from inverse kinematics on outputs
