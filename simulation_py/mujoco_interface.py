@@ -48,6 +48,7 @@ class MujocoInterface:
             self.mj_viewer = mujoco.viewer.launch_passive(self.mj_model, self.mj_data)
             self.mj_viewer.sync()
             self.prevVisSync = time.time()
+        self.renderer = mj.Renderer(self.mj_model, height=960, width=1280)
 
         # Populate the geom map
         self.geom_map = [self.mj_model.names + self.mj_model.name_geomadr[ii] for ii in range(self.mj_model.ngeom)]
@@ -69,6 +70,11 @@ class MujocoInterface:
             self.mj_viewer.sync()
         else:
             print("Viewer has been closed!")
+
+    def readPixels(self) -> np.ndarray:
+        mj.mj_forward(self.mj_model, self.mj_data)
+        self.renderer.update_scene(self.mj_data, "closeup")
+        return self.renderer.render()
     
     def viewerActive(self):
         return self.vis_enabled and self.mj_viewer.is_running()

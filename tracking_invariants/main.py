@@ -3,7 +3,6 @@ from plot.logger import Logger
 from tracking_invariants.tracking_invariant import TrackingInvariant
 
 mesh_path = "rsc/models/"
-log_path = "plot/log_main.csv"
 urdf_path = "rsc/models/adam2d.urdf"
 xml_path = "rsc/models/adam2d.xml"
 

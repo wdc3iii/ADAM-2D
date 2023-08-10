@@ -9,7 +9,7 @@ z_ref: 0.6
 
 v_ref: 0.2
 
-approxMethod: "Extreme Points"
+approxMethod: "Ellipsoid"
 
 vis: false
 

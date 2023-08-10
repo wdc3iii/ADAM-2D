@@ -35,6 +35,8 @@
   </asset>  
 
    <worldbody>
+      <!-- Camera -->
+      <camera name="closeup" pos="0 -.1 .07" xyaxes="1 0 0 0 1 2"/>
       <!-- Ground -->
       <geom name="plane" type="plane" material="plane" size="100 100 0.1" rgba=".9 .9 .9 1" condim="6" friction="1 0.1 0.1"/>
 

@@ -10,12 +10,18 @@ mesh_path = "rsc/models/"
 log_path = "plot/log_tracking_invariant.csv"
 urdf_path = "rsc/models/adam2d.urdf"
 xml_path = "rsc/models/adam2d.xml"
+INFTYNORM = "InftyNorm"
+ELLISPOID = "Ellipsoid"
+POLYTOPE = "Polytope"
+EXTREMEPOINTS = "Extreme Points"
 
 class TrackingInvariant:
     
+    
     def __init__(
             self, v_ref:float, z_ref:float, pitch_ref:float, T_SSP:float, approxMethod:str, Nsamples:int=1000, NsampleSchedule=None, visualize=False,
-            approxSpace:str="Output", useAngMomState:bool=False, use_static_com:bool=False, gravity_comp:bool=True, use_task_space_ctrl:bool=False
+            approxSpace:str="Output", useAngMomState:bool=False, use_static_com:bool=False, gravity_comp:bool=True, use_task_space_ctrl:bool=False,
+            log=True
         ):
         """Initialized a class to compute tracking invariants of the HLIP reduced order model
 
@@ -39,10 +45,10 @@ class TrackingInvariant:
             ValueError: invalid approximation space
         """
         # Check for illegal input arguments
-        if approxMethod not in ["InftyNorm", "Ellipsoid", "Polytope", "Extreme Points"]:
-            raise ValueError(f"Set Approximation Method '{self.approxMethod}' not allowed")
+        if approxMethod not in [INFTYNORM, ELLISPOID, POLYTOPE, EXTREMEPOINTS]:
+            raise ValueError(f"Set Approximation Method '{approxMethod}' not allowed")
         if approxSpace not in ["Output", "State"]:
-            raise ValueError(f"Grouping Space '{self.approxSpace}' not allowed")
+            raise ValueError(f"Grouping Space '{approxSpace}' not allowed")
         
         # Save parameters to instance variables
         self.v_ref = v_ref                      # Reference velocity
@@ -57,7 +63,7 @@ class TrackingInvariant:
         
     
         self.d = 10 if self.approxSpace == "Output" else 14 # Dimension of the approxSpace
-        self.minSampleConvex = 2 * self.d                   # Use Extreme Points for first iterations, until this number of samples
+        self.minSampleConvex = 3 * self.d                   # Use Extreme Points for first iterations, until this number of samples
 
 
         self.adamKin = Kinematics(urdf_path, mesh_path)                     # Initialize kinematics solve
@@ -85,22 +91,26 @@ class TrackingInvariant:
         # Initialize data structures for computation of tracking invariant
         self.reachableList = np.hstack(self.getNominalState()).reshape((1, -1))                         # List of all points which have been reached
         self.reachableTable = {0: np.copy(self.reachableList)}                                          # Table of points, reached at each iteration
-        self.setDiscriptions = {0: {"Method": 'Extreme Points', "Data": np.copy(self.reachableList)}}   # Dictionary of set descriptions after each iteration
+        self.samplePtsTable = {}                                                                        # Table of points, reached at each iteration
+        self.setDiscriptions = {0: {"Method": EXTREMEPOINTS, "Data": np.copy(self.reachableList)}}      # Dictionary of set descriptions after each iteration
         # Counter variables
         self.iteration = 0
         self.propInSet = 0
 
-        # Initialize a logger to track S2S dynamics 
-        self.logger = Logger(log_path,
-            "iter,x0,z0,p0,q10,q20,q30,q40,xd0,zd0,pd0,qd10,qd20,qd30,qd40,p0,sx0,sz0,cx0,cz0,pd0,sxd0,szd0,cxd0,czd0,xF,zF,pF,q1F,q2F,q3F,q4F,xdF,zdF,pdF,qd1F,qd2F,qd3F,qd4F,pF,sxF,szF,cxF,czF,pdF,sxdF,szdF,cxdF,czdF\n"
-        )
+        # Initialize a logger to track S2S dynamics
+        self.log = log
+        if log:
+            self.logger = Logger(log_path,
+                "iter,x0,z0,p0,q10,q20,q30,q40,xd0,zd0,pd0,qd10,qd20,qd30,qd40,p0,sx0,sz0,cx0,cz0,pd0,sxd0,szd0,cxd0,czd0,xF,zF,pF,q1F,q2F,q3F,q4F,xdF,zdF,pdF,qd1F,qd2F,qd3F,qd4F,pF,sxF,szF,cxF,czF,pdF,sxdF,szdF,cxdF,czdF\n"
+            )
 
-    def S2S_sim(self, q0:np.ndarray, qd0:np.ndarray) -> tuple:
+    def S2S_sim(self, q0:np.ndarray, qd0:np.ndarray, vis:bool=False) -> tuple:
         """Performs a closed loop simulation of the step to step dynamics (pre-impact to pre-impact)
 
         Args:
             q0 (np.ndarray): Full order initial configuration
             qd0 (np.ndarray): Full order initial velocity
+            vis (bool, optional): Whether to return frames of visualization
 
         Returns:
             tuple: position, velocity, outputs, and output derivates resulting from S2S dynamics
@@ -113,8 +123,11 @@ class TrackingInvariant:
         # Reset the controller
         self.controller.reset()
 
+        frames = []
+
         while True:
-            # self.mjInt.updateScene()
+            if vis:
+                frames.append(self.mjInt.readPixels())
 
             # Compute the S2S time
             t = self.mjInt.time() - startTime
@@ -147,6 +160,8 @@ class TrackingInvariant:
         qCpos = self.adamKin.calcOutputs(qpos, False)
         qCvel = self.adamKin.calcDOutputs(qpos, qvel, False)
 
+        if vis:
+            return frames
         return qpos, qvel, qCpos, qCvel
     
     def iterateSetMap(self, verbose:bool=True) -> None:
@@ -159,6 +174,7 @@ class TrackingInvariant:
             print("..... Sampling Set .....")
         # Sample points from the current convex outerapproximation
         points = self.sampleSet()
+        self.samplePtsTable[self.iteration] = points
         propogatedPoints = np.zeros_like(points)
 
         if verbose:
@@ -180,7 +196,8 @@ class TrackingInvariant:
             propogatedPoints[ind, 19:] = qdCF
 
             # Log S2S dynamics
-            self.logger.write(np.hstack((self.iteration, points[ind, :], propogatedPoints[ind, :])))
+            if self.log:
+                self.logger.write(np.hstack((self.iteration, points[ind, :], propogatedPoints[ind, :])))
 
         # Add propogated points to the reachable list and table
         self.reachableList = np.vstack((self.reachableList, propogatedPoints))
@@ -220,7 +237,7 @@ class TrackingInvariant:
         setData = self.setDiscriptions[self.iteration]["Data"]
 
         # Sample the set
-        if setMethod == "Extreme Points":
+        if setMethod == EXTREMEPOINTS:
             # Grab only the set data involved in the set approximation
             setData = setData[:, :14] if self.approxSpace == "State" else setData[:, 14:]
             # Sample random integer to define how many points to take convex combination of
@@ -240,9 +257,9 @@ class TrackingInvariant:
                     lmbd = np.random.uniform(0, 1, (1, subset.shape[0]))
                     lmbd /= np.sum(lmbd, axis=1)
                     sampledPoints[ii, :] = lmbd @ subset
-        elif setMethod == "Polytope":
+        elif setMethod == POLYTOPE:
             raise ValueError("Polytope sampling not implemented yet")
-        elif setMethod == "Ellipsoid":
+        elif setMethod == ELLISPOID:
             '''
             uniformly sample a N-dimensional unit UnitBall
             Reference:
@@ -260,8 +277,8 @@ class TrackingInvariant:
             u = u / norm
             # The first N coordinates are uniform in a unit N ball
             sampledPoints = u[:, :self.d]
-            sampledPoints = np.linalg.inv(sqrtm(setData["A"])) @ sampledPoints + setData["c"]
-        elif setMethod == "InftyNorm":
+            sampledPoints = (np.linalg.inv(sqrtm(setData["A"])) @ sampledPoints.T).T + setData["c"]
+        elif setMethod == INFTYNORM:
             # Sample uniformly from the high dimensional rectangle
             sampledPoints = np.random.uniform(setData["LB"], setData["UB"], (self.Nsamples, setData["LB"].shape[0]))
         
@@ -293,42 +310,45 @@ class TrackingInvariant:
             points = self.reachableList[:, 14:]
 
         # Fits a convex outer approximation to a set of points
-        if self.approxMethod == "Extreme Points" or self.reachableList.shape[0] < self.minSampleConvex:
+        if self.approxMethod == EXTREMEPOINTS or self.reachableList.shape[0] < self.minSampleConvex:
             # Just use the set of points as the set definition
             # TODO: compute and only retain extreme points
             desc = self.reachableList
+            # Save the set description for next iteration
+            self.setDiscriptions[self.iteration + 1] = {"Method": "Extreme Points", "Data": desc}
         
-        elif self.approxMethod == "InftyNorm":
+        elif self.approxMethod == INFTYNORM:
             # Compute infinity norm ball around points
             desc = {}
             desc["UB"] = np.max(points, axis=0)
             desc["LB"] = np.min(points, axis=0)
+            # Save the set description for next iteration
+            self.setDiscriptions[self.iteration + 1] = {"Method": self.approxMethod, "Data": desc}
         
-        elif self.approxMethod == "Ellipse":
+        elif self.approxMethod == ELLISPOID:
             # Finds the ellipse equation in "center form" (x-c).T * A * (x-c) = 1
             N, d = points.shape
             Q = np.column_stack((points, np.ones(N))).T
             tol = 1e-3
-            err = tol+1.0
-            u = np.ones(N)/N
+            err = tol + 1.0
+            u = np.ones(N) / N
             while err > tol:
                 # assert u.sum() == 1 # invariant
                 X = np.dot(np.dot(Q, np.diag(u)), Q.T)
                 M = np.diag(np.dot(np.dot(Q.T, np.linalg.inv(X)), Q))
                 jdx = np.argmax(M)
-                step_size = (M[jdx]-d-1.0)/((d+1)*(M[jdx]-1.0))
-                new_u = (1-step_size)*u
+                step_size = (M[jdx] - d - 1.0) / ((d + 1) * (M[jdx] - 1.0))
+                new_u = (1-step_size) * u
                 new_u[jdx] += step_size
-                err = np.linalg.norm(new_u-u)
+                err = np.linalg.norm(new_u - u)
                 u = new_u
-            c = np.dot(u,points)
-            A = np.linalg.inv(np.dot(np.dot(points.T, np.diag(u)), points) - np.multiply.outer(c,c))/d
+            c = np.dot(u, points)
+            A = np.linalg.inv(np.dot(np.dot(points.T, np.diag(u)), points) - np.multiply.outer(c, c)) / d
             desc = {"c": c, "A": A}
-        elif self.approxMethod == "Polytope":
+            # Save the set description for next iteration
+            self.setDiscriptions[self.iteration + 1] = {"Method": self.approxMethod, "Data": desc}
+        elif self.approxMethod == POLYTOPE:
             raise ValueError("Polytope not yet implemented")
-        
-        # Save the set description for next iteration
-        self.setDiscriptions[self.iteration + 1] = {"Method": self.approxMethod, "Data": desc}
     
     def getNominalState(self) -> tuple:
         """Computes the nominal state and outputs matching HLIP reference
@@ -499,13 +519,13 @@ class TrackingInvariant:
         """
         setMethod = self.setDiscriptions[iteration]["Method"]
         setData = self.setDiscriptions[iteration]["Data"]
-        if setMethod == "Extreme Points" or self.reachableList.shape[0] < self.minSampleConvex:
+        if setMethod == EXTREMEPOINTS or self.reachableList.shape[0] < self.minSampleConvex:
             # raise ValueError("Polytope sampling not implemented yet")
             # print("Extreme point in set not implemented yet\n")
             return np.NaN
-        elif setMethod == "Polytope":
+        elif setMethod == POLYTOPE:
             raise ValueError("Polytope point in set not implemented yet")
-        elif setMethod == "Ellipsoid":
+        elif setMethod == ELLISPOID:
             '''
             uniformly sample a N-dimensional unit UnitBall
             Reference:
@@ -518,7 +538,7 @@ class TrackingInvariant:
                 uniformly sampled points within N-dimensional unit ball
             '''
             return np.dot(point - setData["c"], setData["A"] @ (point - setData["c"])) <= 1
-        elif setMethod == "InftyNorm":
+        elif setMethod == INFTYNORM:
             return np.all(point <= setData["UB"]) and np.all(point >= setData["LB"])
         
     
@@ -530,7 +550,7 @@ class TrackingInvariant:
         if self.iteration < 2:
             return
         # Second, a measure of how much the outer approximation changed
-        if self.approxMethod == "InftyNorm":
+        if self.approxMethod == INFTYNORM:
             dUB = self.setDiscriptions[self.iteration]["Data"]["UB"] - self.setDiscriptions[self.iteration - 1]["Data"]["UB"]
             dLB = self.setDiscriptions[self.iteration]["Data"]["LB"] - self.setDiscriptions[self.iteration - 1]["Data"]["LB"]
 
