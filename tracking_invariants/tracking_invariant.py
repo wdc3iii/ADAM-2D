@@ -1,10 +1,11 @@
-from tqdm import trange
 import numpy as np
 from plot.logger import Logger
+from joblib import Parallel, delayed
 from kinematics_py.adam_kinematics import Kinematics
 from control_py.hlip_controller import HLIPController
 from simulation_py.mujoco_interface import MujocoInterface
 from scipy.linalg import sqrtm
+import time
 
 mesh_path = "rsc/models/"
 log_path = "plot/log_tracking_invariant.csv"
@@ -19,7 +20,7 @@ class TrackingInvariant:
     
     
     def __init__(
-            self, v_ref:float, z_ref:float, pitch_ref:float, T_SSP:float, approxMethod:str, Nsamples:int=1000, NsampleSchedule=None, visualize=False,
+            self, v_ref:float, z_ref:float, pitch_ref:float, T_SSP:float, approxMethod:str, Nsamples:int=1000, Njobs:int=1, NsampleSchedule=None, visualize=False,
             approxSpace:str="Output", useAngMomState:bool=False, use_static_com:bool=False, gravity_comp:bool=True, use_task_space_ctrl:bool=False,
             log=True
         ):
@@ -69,13 +70,23 @@ class TrackingInvariant:
         self.adamKin = Kinematics(urdf_path, mesh_path)                     # Initialize kinematics solve
         self.visualize = visualize
         self.mjInt = MujocoInterface(xml_path, vis_enabled=self.visualize)  # Initialize simulator
+        self.Njobs = Njobs
 
         # Initialized closed loop HLIP controller
+        self.use_static_com = use_static_com
+        self.gravity_comp = gravity_comp
+        self.useAngMomState = useAngMomState
+        self.use_task_space_ctrl = use_task_space_ctrl
         self.controller = HLIPController(
             T_SSP, z_ref, urdf_path, mesh_path, self.mjInt.mass, angMomState=useAngMomState,
             v_ref=v_ref, pitch_ref=pitch_ref, use_static_com=use_static_com, grav_comp=gravity_comp,
             use_task_space_ctrl=use_task_space_ctrl
         )
+        self.params = {
+            "T_SSP": T_SSP, "z_ref": z_ref, "mass": self.mjInt.mass, "useAngMomState": useAngMomState, "v_ref": v_ref,
+            "pitch_ref": pitch_ref, "use_static_com": use_static_com, "gravity_comp": gravity_comp, "use_task_space_ctrl": use_task_space_ctrl,
+            "visualize": visualize
+        }
 
         # Default configuration for initial guess on IK for initial configurations
         self.q_ik = self.adamKin.getZeroPos()
@@ -104,7 +115,43 @@ class TrackingInvariant:
                 "iter,x0,z0,p0,q10,q20,q30,q40,xd0,zd0,pd0,qd10,qd20,qd30,qd40,p0,sx0,sz0,cx0,cz0,pd0,sxd0,szd0,cxd0,czd0,xF,zF,pF,q1F,q2F,q3F,q4F,xdF,zdF,pdF,qd1F,qd2F,qd3F,qd4F,pF,sxF,szF,cxF,czF,pdF,sxdF,szdF,cxdF,czdF\n"
             )
 
-    def S2S_sim(self, q0:np.ndarray, qd0:np.ndarray, vis:bool=False) -> tuple:
+    @staticmethod
+    def S2S_sim_helper(points, params):
+        t0 = time.time()
+        kin = Kinematics(urdf_path, mesh_path)
+        t1 = time.time()
+        mjc = MujocoInterface(xml_path, vis_enabled=params["visualize"])
+        t2 = time.time()
+        ctrl = HLIPController(
+            params["T_SSP"], params["z_ref"], urdf_path, mesh_path, params["mass"], angMomState=params["useAngMomState"],
+            v_ref=params["v_ref"], pitch_ref=params["pitch_ref"], use_static_com=params["use_static_com"], grav_comp=params["gravity_comp"],
+            use_task_space_ctrl=params["use_task_space_ctrl"]
+        )
+        t3 = time.time()
+        print(f"kin: {t1 - t0}\tmjc: {t2 - t1}\tctrl: {t3-t2}\tTotal: {t3 - t0}")
+
+        propogatedPoints = np.zeros_like(points)
+        for ind in range(points.shape[0]):
+            # Extract initial condition
+            q0 = points[ind, :7]
+            qd0 = points[ind, 7:14]
+
+            # Compute S2S dynamics
+            qF, qdF, qCF, qdCF = TrackingInvariant.S2S_sim(q0, qd0, kin, mjc, ctrl)
+
+            # Store results
+            propogatedPoints[ind, :7] = qF
+            propogatedPoints[ind, 7:14] = qdF
+            propogatedPoints[ind, 14:19] = qCF
+            propogatedPoints[ind, 19:] = qdCF
+        
+        del kin
+        del mjc
+        del ctrl
+        return propogatedPoints
+        
+    @staticmethod
+    def S2S_sim(q0:np.ndarray, qd0:np.ndarray, kin, mjc, ctrl, vis:bool=False) -> tuple:
         """Performs a closed loop simulation of the step to step dynamics (pre-impact to pre-impact)
 
         Args:
@@ -116,38 +163,38 @@ class TrackingInvariant:
             tuple: position, velocity, outputs, and output derivates resulting from S2S dynamics
         """
         # Set the simulator state
-        self.mjInt.setState(q0, qd0)
-        self.mjInt.forward()
+        mjc.setState(q0, qd0)
+        mjc.forward()
         # Get the starting time of the simulation
-        startTime = self.mjInt.time()
+        startTime = mjc.time()
         # Reset the controller
-        self.controller.reset()
+        ctrl.reset()
 
         frames = []
 
         while True:
             if vis:
-                frames.append(self.mjInt.readPixels())
+                frames.append(mjc.readPixels())
 
             # Compute the S2S time
-            t = self.mjInt.time() - startTime
+            t = mjc.time() - startTime
             # Query state from Mujoco
-            qpos = self.mjInt.getGenPosition()
-            qvel = self.mjInt.getGenVelocity() 
+            qpos = mjc.getGenPosition()
+            qvel = mjc.getGenVelocity() 
             # Compute control action 
-            q_pos_ref, q_vel_ref, q_ff_ref = self.controller.gaitController(qpos, qpos, qvel, t)
+            q_pos_ref, q_vel_ref, q_ff_ref = ctrl.gaitController(qpos, qpos, qvel, t)
 
             # Apply control action
-            self.mjInt.jointPosCmd(q_pos_ref)
-            self.mjInt.jointVelCmd(q_vel_ref)
-            self.mjInt.jointTorCmd(q_ff_ref)
+            mjc.jointPosCmd(q_pos_ref)
+            mjc.jointVelCmd(q_vel_ref)
+            mjc.jointTorCmd(q_ff_ref)
 
             # If stance foot has changed, stop simulation
-            if not self.controller.cur_stf:
+            if not ctrl.cur_stf:
                 break
 
             # Step simulation forward
-            self.mjInt.step()
+            mjc.step()
         
         # Swap legs (take advantage of symmetry)
         qpos_copy = np.copy(qpos)
@@ -157,8 +204,8 @@ class TrackingInvariant:
         qvel[3:5] = qvel_copy[5:]
         qvel[5:] = qvel_copy[3:5]
         # Compute with stanceFoot = False to swap legs
-        qCpos = self.adamKin.calcOutputs(qpos, False)
-        qCvel = self.adamKin.calcDOutputs(qpos, qvel, False)
+        qCpos = kin.calcOutputs(qpos, False)
+        qCvel = kin.calcDOutputs(qpos, qvel, False)
 
         if vis:
             return frames
@@ -175,33 +222,29 @@ class TrackingInvariant:
         # Sample points from the current convex outerapproximation
         points = self.sampleSet()
         self.samplePtsTable[self.iteration] = points
-        propogatedPoints = np.zeros_like(points)
 
         if verbose:
             print("..... Computing S2S .....")
         # Propogate points through the S2S dynamics
-        func = trange if verbose else range # use progress bar if verbose
-        for ind in func(points.shape[0]):
-            # Extract initial condition
-            q0 = points[ind, :7]
-            qd0 = points[ind, 7:14]
-
-            # Compute S2S dynamics
-            qF, qdF, qCF, qdCF = self.S2S_sim(q0, qd0)
-
-            # Store results
-            propogatedPoints[ind, :7] = qF
-            propogatedPoints[ind, 7:14] = qdF
-            propogatedPoints[ind, 14:19] = qCF
-            propogatedPoints[ind, 19:] = qdCF
-
-            # Log S2S dynamics
-            if self.log:
-                self.logger.write(np.hstack((self.iteration, points[ind, :], propogatedPoints[ind, :])))
+        if points.shape[0] == 1:
+            qF, qdF, qCF, qdCF = self.S2S_sim(points[0, :7], points[0, 7:14], self.adamKin, self.mjInt, self.controller)
+            propogatedPoints = np.hstack((qF, qdF, qCF, qdCF)).reshape((1, -1))
+        else:
+            ptsPer = points.shape[0] // self.Njobs
+            subsets = [points[ii * ptsPer:min((ii + 1) * ptsPer, points.shape[0]), :] for ii in range(self.Njobs)]
+            t0 = time.time()
+            results = Parallel(n_jobs=self.Njobs, verbose=verbose)(delayed(TrackingInvariant.S2S_sim_helper)(subsetPts, self.params) for subsetPts in subsets)
+            print(f"Overall: {time.time() - t0}")
+            propogatedPoints = np.vstack(results)
 
         # Add propogated points to the reachable list and table
         self.reachableList = np.vstack((self.reachableList, propogatedPoints))
         self.reachableTable[self.iteration + 1] = propogatedPoints
+
+        # Log S2S dynamics
+        if self.log:
+            for ind in range(propogatedPoints.shape[0]):
+                self.logger.write(np.hstack((self.iteration, points[ind, :], propogatedPoints[ind, :])))
 
         if verbose:
             print("..... Fitting Set .....")

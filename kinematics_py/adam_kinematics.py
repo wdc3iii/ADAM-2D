@@ -34,7 +34,7 @@ class Kinematics:
 
         self.use_static_com = use_static_com
 
-        self.pin_model, self.collision_model, self.visual_model = pin.buildModelsFromUrdf(urdf_path, mesh_path)
+        self.pin_model, _, _ = pin.buildModelsFromUrdf(urdf_path, mesh_path)
 
         self.pin_data = self.pin_model.createData()
 

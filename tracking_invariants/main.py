@@ -22,7 +22,7 @@ def main():
     approxMethod = config["approxMethod"]
     vis = config["vis"]
 
-    tracking_invariant = TrackingInvariant(v_ref, z_ref, pitch_ref, T_SSP, approxMethod, 10, use_static_com=use_static_com, useAngMomState=useAngMomState, gravity_comp=gravity_comp, use_task_space_ctrl=use_task_space_ctrl, visualize=vis)
+    tracking_invariant = TrackingInvariant(v_ref, z_ref, pitch_ref, T_SSP, approxMethod, 1000, Njobs=5, use_static_com=use_static_com, useAngMomState=useAngMomState, gravity_comp=gravity_comp, use_task_space_ctrl=use_task_space_ctrl, visualize=vis)
     
     while tracking_invariant.getPropInSet() < 1:
         tracking_invariant.iterateSetMap(verbose=True)
