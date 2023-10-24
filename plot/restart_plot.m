@@ -116,21 +116,51 @@ J_mjc2(2, 5, :) = data_MJC.J2h25;
 J_mjc2(2, 6, :) = data_MJC.J2h26;
 J_mjc2(2, 7, :) = data_MJC.J2h27;
 
+t_s = find(abs(diff(x)) > 0.05);
+
 %% Plot Joints
 fh1 = figure();
 subplot(2, 1, 1)
 hold on;
-plot(t, x)
-plot(t, z)
-plot(t, pitch)
+plot(t(1:t_s(1)), x(1:t_s(1)))
+plot(t(1:t_s(1)), z(1:t_s(1)))
+plot(t(1:t_s(1)), pitch(1:t_s(1)))
+
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, x(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, z(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, pitch(t_s(1)+1:t_s(2)))
+
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, x(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, z(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, pitch(t_s(2)+1:t_s(3)))
+
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, x(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, z(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, pitch(t_s(3)+1:end))
 hold off;
-legend('x', 'z', 'pitch')
+legend('x', 'z', 'pitch', 'x1', 'z1', 'pitch1', 'x2', 'z2', 'pitch2', 'x3', 'z3', 'pitch3')
 subplot(2, 1, 2)
 hold on;
-plot(t, q1)
-plot(t, q2)
-plot(t, q3)
-plot(t, q4)
+plot(t(1:t_s(1)), q1(1:t_s(1)))
+plot(t(1:t_s(1)), q2(1:t_s(1)))
+plot(t(1:t_s(1)), q3(1:t_s(1)))
+plot(t(1:t_s(1)), q4(1:t_s(1)))
+
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q1(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q2(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q3(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q4(t_s(1)+1:t_s(2)))
+
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q1(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q2(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q3(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q4(t_s(2)+1:t_s(3)))
+
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q1(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q2(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q3(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q4(t_s(3)+1:end))
+
 hold off;
 legend('q1', 'q2', 'q3', 'q4')
 sgtitle('Generalized Position')
@@ -139,28 +169,70 @@ sgtitle('Generalized Position')
 fh2 = figure();
 subplot(2, 1, 1)
 hold on;
-plot(t, xdot)
-plot(t, zdot)
-plot(t, pitchdot)
+plot(t(1:t_s(1)), xdot(1:t_s(1)))
+plot(t(1:t_s(1)), zdot(1:t_s(1)))
+plot(t(1:t_s(1)), pitchdot(1:t_s(1)))
+
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, xdot(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)+ 1) + 0.3, zdot(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)+ 1) + 0.3, pitchdot(t_s(1)+1:t_s(2)))
+
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)+ 1) + 0.6, xdot(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)+ 1) + 0.6, zdot(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)+ 1) + 0.6, pitchdot(t_s(2)+1:t_s(3)))
+
+plot(t(t_s(3)+1:end) - t(t_s(3)+ 1) + 0.9, xdot(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3)+ 1) + 0.9, zdot(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3)+ 1) + 0.9, pitchdot(t_s(3)+1:end))
 hold off;
-legend('xdot', 'zdot', 'pitchdot')
+legend('xdot', 'zdot', 'pitchdot', 'xdot1', 'zdot1', 'pitchdot1', 'xdot2', 'zdot2', 'pitchdot2', 'xdot3', 'zdot3', 'pitchdot3')
 subplot(2, 1, 2)
 hold on;
-plot(t, q1dot)
-plot(t, q2dot)
-plot(t, q3dot)
-plot(t, q4dot)
+plot(t(1:t_s(1)), q1dot(1:t_s(1)))
+plot(t(1:t_s(1)), q2dot(1:t_s(1)))
+plot(t(1:t_s(1)), q3dot(1:t_s(1)))
+plot(t(1:t_s(1)), q4dot(1:t_s(1)))
+
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q1dot(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q2dot(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q3dot(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q4dot(t_s(1)+1:t_s(2)))
+
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q1dot(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q2dot(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q3dot(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q4dot(t_s(2)+1:t_s(3)))
+
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q1dot(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q2dot(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q3dot(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q4dot(t_s(3)+1:end))
 hold off;
-legend('q1dot', 'q2dot', 'q3dot', 'q4dot')
+legend('q1dot', 'q2dot', 'q3dot', 'q4dot', '1q1dot', '1q2dot', '1q3dot', '1q4dot', '2q1dot', '2q2dot', '2q3dot', '2q4dot', '3q1dot', '3q2dot', '3q3dot', '3q4dot')
 sgtitle('Generalized Velocity')
 
 %% Plot Joint References
 fh3 = figure();
 hold on;
-plot(t, q1ref)
-plot(t, q2ref)
-plot(t, q3ref)
-plot(t, q4ref)
+plot(t(1:t_s(1)), q1ref(1:t_s(1)))
+plot(t(1:t_s(1)), q2ref(1:t_s(1)))
+plot(t(1:t_s(1)), q3ref(1:t_s(1)))
+plot(t(1:t_s(1)), q4ref(1:t_s(1)))
+
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q1ref(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q2ref(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q3ref(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1) + 1) + 0.3, q4ref(t_s(1)+1:t_s(2)))
+
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q1ref(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q2ref(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q3ref(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2) + 1) + 0.6, q4ref(t_s(2)+1:t_s(3)))
+
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q1ref(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q2ref(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q3ref(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3) + 1) + 0.9, q4ref(t_s(3)+1:end))
 hold off;
 legend('q1ref', 'q2ref', 'q3ref', 'q4ref')
 title('Joint Reference')
@@ -169,16 +241,41 @@ title('Joint Reference')
 fh4 = figure();
 subplot(2, 1, 1)
 hold on;
-plot(t, u_nom)
-plot(t, u)
+
+plot(t(1:t_s(1)), u_nom(1:t_s(1)))
+plot(t(1:t_s(1)), u(1:t_s(1)))
+
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)) + 0.3, u_nom(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)) + 0.3, u(t_s(1)+1:t_s(2)))
+
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)) + 0.6, u_nom(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)) + 0.6, u(t_s(2)+1:t_s(3)))
+
+plot(t(t_s(3)+1:end) - t(t_s(3)) + 0.9, u_nom(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3)) + 0.9, u(t_s(3)+1:end))
 hold off
 legend('u nominal', 'u')
 subplot(2, 1, 2)
 hold on
-plot(t, x_swf_ref)
-plot(t, z_swf_ref)
-plot(t, x_swf)
-plot(t, z_swf)
+plot(t(1:t_s(1)), x_swf_ref(1:t_s(1)))
+plot(t(1:t_s(1)), z_swf_ref(1:t_s(1)))
+plot(t(1:t_s(1)), x_swf(1:t_s(1)))
+plot(t(1:t_s(1)), z_swf(1:t_s(1)))
+
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)) + 0.3, x_swf_ref(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)) + 0.3, z_swf_ref(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)) + 0.3, x_swf(t_s(1)+1:t_s(2)))
+plot(t(t_s(1)+1:t_s(2)) - t(t_s(1)) + 0.3, z_swf(t_s(1)+1:t_s(2)))
+
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)) + 0.6, x_swf_ref(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)) + 0.6, z_swf_ref(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)) + 0.6, x_swf(t_s(2)+1:t_s(3)))
+plot(t(t_s(2)+1:t_s(3)) - t(t_s(2)) + 0.6, z_swf(t_s(2)+1:t_s(3)))
+
+plot(t(t_s(3)+1:end) - t(t_s(3)) + 0.9, x_swf_ref(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3)) + 0.9, z_swf_ref(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3)) + 0.9, x_swf(t_s(3)+1:end))
+plot(t(t_s(3)+1:end) - t(t_s(3)) + 0.9, z_swf(t_s(3)+1:end))
 hold off
 legend('x swf ref', 'z swf ref', 'x swf', 'z swf')
 sgtitle('Step Reference')

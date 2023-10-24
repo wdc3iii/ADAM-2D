@@ -68,10 +68,39 @@ class HLIPController:
         z_bez = np.array([0, 0.25 * self.z_swf_max, 0.5 * self.z_swf_max, self.z_swf_max, 0])
         self.swf_pos_z_bez = Bezier(z_bez)
 
+        # self.logger = Logger(
+        #     log_path,
+        #     "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,ypitch,yswfx,yswfz,ycomx,ycomz,ypitchref,yswfxref,yswfzref,ycomxref,ycomzref,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref,tau1,tau2,tau3,tau4,vcom,vstatic,vbody,impact,stf_ang_mom_pin,x_ssp_curr_L,L_ssp_curr_L,x_ssp_impact_L,L_ssp_impact_L,x_ssp_impact_ref_L,L_ssp_impact_ref_L,tau1_gc,tau2_gc,tau3_gc,tau4_gc,tau1_tsc,tau2_tsc,tau3_tsc,tau4_tsc,ddx,ddz,ddtheta,ddq1,ddq2,ddq3,ddq4,grfx,grfz,deltaepitch,deltaeswfx,deltaeswfz,deltaecomz,obj_val,m11,m12,m13,m14,m15,m16,m17,m21,m22,m23,m24,m25,m26,m27,m31,m32,m33,m34,m35,m36,m37,m41,m42,m43,m44,m45,m46,m47,m51,m52,m53,m54,m55,m56,m57,m61,m62,m63,m64,m65,m66,m67,m71,m72,m73,m74,m75,m76,m77,h1,h2,h3,h4,h5,h6,h7,Jh11,Jh12,Jh13,Jh14,Jh15,Jh16,Jh17,Jh21,Jh22,Jh23,Jh24,Jh25,Jh26,Jh27\n"
+        # )
+    
         self.logger = Logger(
             log_path,
-            "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,ypitch,yswfx,yswfz,ycomx,ycomz,ypitchref,yswfxref,yswfzref,ycomxref,ycomzref,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref,tau1,tau2,tau3,tau4,vcom,vstatic,vbody,impact,stf_ang_mom_pin,x_ssp_curr_L,L_ssp_curr_L,x_ssp_impact_L,L_ssp_impact_L,x_ssp_impact_ref_L,L_ssp_impact_ref_L,tau1_gc,tau2_gc,tau3_gc,tau4_gc,tau1_tsc,tau2_tsc,tau3_tsc,tau4_tsc,ddx,ddz,ddtheta,ddq1,ddq2,ddq3,ddq4,grfx,grfz,deltaepitch,deltaeswfx,deltaeswfz,deltaecomz,obj_val,m11,m12,m13,m14,m15,m16,m17,m21,m22,m23,m24,m25,m26,m27,m31,m32,m33,m34,m35,m36,m37,m41,m42,m43,m44,m45,m46,m47,m51,m52,m53,m54,m55,m56,m57,m61,m62,m63,m64,m65,m66,m67,m71,m72,m73,m74,m75,m76,m77,h1,h2,h3,h4,h5,h6,h7,Jh11,Jh12,Jh13,Jh14,Jh15,Jh16,Jh17,Jh21,Jh22,Jh23,Jh24,Jh25,Jh26,Jh27\n"
+            "t,tphase,tscaled,x,z,pitch,q1,q2,q3,q4,xdot,zdot,pitchdot,q1dot,q2dot,q3dot,q4dot,xkin,zkin,pitchkin,q1kin,q2kin,q3kin,q4kin,vrefgoal,vref,zrefgoal,zref,x_ssp_curr,v_ssp_curr,x_ssp_impact,v_ssp_impact,x_ssp_impact_ref,v_ssp_impact_ref,unom,u,bht,ypitch,yswfx,yswfz,ycomx,ycomz,ypitchref,yswfxref,yswfzref,ycomxref,ycomzref,xref,z_ref,pitchref,q1ref,q2ref,q3ref,q4ref,tau1,tau2,tau3,tau4,impact,tau1_gc,tau2_gc,tau3_gc,tau4_gc\n"
         )
+
+    def getNominalS2S(self, u_prev, x0, u_nom):
+        x1 = self.calcSSPStateRef_HLIP(x0, self.T_SSP)
+        y0 = np.array([
+            self.pitch_ref,     # Desired pitch
+            u_prev,             # Xswf is step length
+            0,                  # Zswf = 0 pre-impact
+            x0[0] + u_prev,     # Xcom = Xhlip(post_impact) + u_prev (to get pre-impact)
+            self.z_ref          # Zcom = Zref
+        ])
+        yd0 = np.array([
+            0, self.swf_x_bez.deval(0), self.swf_pos_z_poly.evalPoly(0, 1), x0[1], 0
+        ])
+        yF = np.array([
+            self.pitch_ref,     # Desired pitch
+            u_nom,             # Xswf is step length
+            0,                  # Zswf = 0 pre-impact
+            x1[0],              # Xcom = Xhlip(pre_impact)
+            self.z_ref          # Zcom = Zref
+        ])
+        ydF = np.array([
+            0, self.swf_x_bez.deval(1), self.swf_pos_z_poly.evalPoly(self.T_SSP, 1), x1[1], 0
+        ])
+        return y0, yd0, yF, ydF
 
     def calcPreImpactStateRef_HLIP(self, v_ref:float) -> np.ndarray:
         sigma_1 = self.lmbd / np.tanh(self.T_SSP * self.lmbd / 2)
@@ -341,11 +370,11 @@ class HLIPController:
         else:
             q_ff_ref = q_ff_ref_pd
 
-        # self.logger.write(np.hstack((
-        #     t, t_phase, t_scaled, q_pos_ctrl, q_vel_ctrl, q, self.v_ref_goal, self.v_ref, self.z_ref_goal, self.z_ref, 
-        #     x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, y_out_ref, q_gen_ref, q_ff_ref, v_com[0], v_static[0], q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]],
-        #     impact, ang_mom, x_ssp_curr_L, x_ssp_impact_L, x_ssp_impact_ref_L, q_ff_ref_gravcomp, tau, ddq, grf, dde - dded, 0.5*np.inner(dde - dded, dde - dded), M.reshape((-1,)), H, Jh.reshape((-1))
-        # )))
+        self.logger.write(np.hstack((
+            t, t_phase, t_scaled, q_pos_ctrl, q_vel_ctrl, q, self.v_ref_goal, self.v_ref, self.z_ref_goal, self.z_ref, 
+            x_ssp_curr, x_ssp_impact, x_ssp_impact_ref, self.u_nom, self.u, bht, y_out, y_out_ref, q_gen_ref, q_ff_ref, # v_com[0], v_static[0], q_vel_ctrl[Kinematics.GEN_VEL_ID["V_X"]],
+            impact, q_ff_ref_gravcomp #, tau, ddq, grf, dde - dded, 0.5*np.inner(dde - dded, dde - dded), M.reshape((-1,)), H, Jh.reshape((-1))
+        )))
 
         # dyn_err = np.linalg.norm(M @ ddq + H - (B @ tau + Jh.T @ grf))
         # if dyn_err > 3e-4:

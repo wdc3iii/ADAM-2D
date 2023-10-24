@@ -25,7 +25,7 @@ tau1 = data.tau1; tau2 = data.tau2; tau3 = data.tau3; tau4 = data.tau4;
 % vcom = data.vcom; vstatic = data.vstatic; vbody = data.vbody;
 % stf_ang_mom_mj = data.stf_ang_mom_mj; stf_ang_mom_pin = data.stf_ang_mom_pin;
 % x_ssp_curr_L = data.x_ssp_curr_L; L_ssp_curr_L = data.L_ssp_curr_L; x_ssp_impact_L = data.x_ssp_impact_L; L_ssp_impact_L = data.L_ssp_impact_L; x_ssp_impact_ref_L = data.x_ssp_impact_ref_L; L_ssp_impact_ref_L = data.L_ssp_impact_ref_L;
-% grfx = data.grfx; grfz = data.grfz;
+grfx = data.grfx; grfz = data.grfz;
 tau1_gc = data.tau1_gc; tau2_gc = data.tau2_gc; tau3_gc = data.tau3_gc; tau4_gc = data.tau4_gc;
 % tau1_tsc = data.tau1_tsc; tau2_tsc = data.tau2_tsc; tau3_tsc = data.tau3_tsc; tau4_tsc = data.tau4_tsc;
 % ddx = data.ddx; ddz = data.ddz; ddtheta = data.ddtheta; ddq1 = data.ddq1; ddq2 = data.ddq2; ddq3 = data.ddq3; ddq4 = data.ddq4;
@@ -228,23 +228,23 @@ end
 % plot(tt, xt(:, 2))
 % hold off
 
-% %% Plot LLIP Predictions
-% figure();
-% subplot(2, 1, 1)
-% hold on
-% plot(t, x_ssp_curr_L)
-% plot(t, x_ssp_impact_L)
-% plot(t, x_ssp_impact_ref_L)
-% hold off;
-% legend('x com', 'predicted x com impact', 'x com impact ref')
-% subplot(2, 1, 2)
-% hold on
-% plot(t, L_ssp_curr_L)
-% plot(t, L_ssp_impact_L)
-% plot(t, L_ssp_impact_ref_L)
-% hold off
-% legend('L com', 'predicted L com impact', 'L com impact ref')
-% sgtitle('LLIP Approximation')
+%% Plot LLIP Predictions
+figure();
+subplot(2, 1, 1)
+hold on
+plot(t, x_ssp_curr_L)
+plot(t, x_ssp_impact_L)
+plot(t, x_ssp_impact_ref_L)
+hold off;
+legend('x com', 'predicted x com impact', 'x com impact ref')
+subplot(2, 1, 2)
+hold on
+plot(t, L_ssp_curr_L)
+plot(t, L_ssp_impact_L)
+plot(t, L_ssp_impact_ref_L)
+hold off
+legend('L com', 'predicted L com impact', 'L com impact ref')
+sgtitle('LLIP Approximation')
 
 %% Plot Outputs
 figure();
@@ -337,15 +337,15 @@ hold off
 legend('tau1', 'tau2', 'tau3', 'tau4')
 title('Feedfoward Torque')
 
-% %% Plot CoM velocity approxes
-% figure();
-% hold on;
-% plot(t, vcom)
-% plot(t, vstatic)
-% plot(t, vbody)
-% hold off;
-% legend("CoM", "Static", "Body")
-% title("CoM Velocity Approximations")
+%% Plot CoM velocity approxes
+figure();
+hold on;
+plot(t, vcom)
+plot(t, vstatic)
+plot(t, vbody)
+hold off;
+legend("CoM", "Static", "Body")
+title("CoM Velocity Approximations")
 
 %% Stance Foot Angular Mommentum
 figure();
